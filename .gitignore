@@ -17,3 +17,11 @@ fixtures/jacos-snapshot/
 
 .env
 .DS_Store
+
+# Credentials live outside this repo entirely (see ~/.jacos/SECRETS.md).
+# These rules exist only to catch an accidental re-creation in-tree.
+SECRETS.md
+secrets.md
+*.pem
+id_*
+!id_*.pub.example
