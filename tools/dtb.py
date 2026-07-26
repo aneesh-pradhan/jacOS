@@ -30,6 +30,43 @@ import tempfile
 # Properties whose value is a bare phandle (or phandle + specifier cells).
 SUPPLY_RE = re.compile(r"^(.*)-supply$")
 
+# --------------------------------------------------------------------------
+# redaction
+# --------------------------------------------------------------------------
+# A device tree describes hardware, but a few properties identify the specific
+# unit it was captured from. Snapshots are meant to be committed and shared --
+# that is the whole point of the replay path -- so strip these by default and
+# make keeping them a deliberate act.
+
+_REDACT_EXACT = {"serial-number", "device-serial", "imei"}
+_REDACT_SUBSTR = ("mac-address", "ethaddr", "wlan-addr")
+_UUID_RE = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}"
+                      r"-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+REDACTED = "<redacted>"
+
+
+def redact_props(props: dict) -> tuple[dict, int]:
+    """Strip unit-identifying values, keeping the property itself visible.
+
+    Replacing rather than deleting is deliberate: a reader should be able to
+    tell that the node *has* a serial number without learning what it is.
+    """
+    out, hits = {}, 0
+    for k, v in props.items():
+        kl = k.lower()
+        if kl in _REDACT_EXACT or any(s in kl for s in _REDACT_SUBSTR):
+            out[k] = REDACTED
+            hits += 1
+            continue
+        # Filesystem UUIDs ride along in the kernel command line.
+        if isinstance(v, str) and _UUID_RE.search(v):
+            out[k] = _UUID_RE.sub(REDACTED, v)
+            hits += 1
+            continue
+        out[k] = v
+    return out, hits
+
+
 # Buses where "a device exists but no driver bound" is a genuine probe failure.
 # Deliberately excludes cpu/clocksource/nvmem/auxiliary, whose devices are not
 # things a driver binds to.
@@ -147,7 +184,7 @@ def interrupt_parent_of(path: str, tree: dict[str, dict], by_phandle: dict[int, 
         node = node.rsplit("/", 1)[0] or "/"
 
 
-def build_spec(tree: dict[str, dict], meta: dict) -> dict:
+def build_spec(tree: dict[str, dict], meta: dict, redact: bool = True) -> dict:
     """Turn the raw property tree into a node/edge spec."""
     # phandle -> path, so cross-tree references can be resolved to real nodes.
     by_phandle: dict[int, str] = {}
@@ -159,6 +196,7 @@ def build_spec(tree: dict[str, dict], meta: dict) -> dict:
 
     nodes, edges = [], []
     unresolved: list[tuple[str, str, int]] = []
+    redacted = 0
 
     for path, props in sorted(tree.items()):
         compat = props.get("compatible", [])
@@ -168,6 +206,16 @@ def build_spec(tree: dict[str, dict], meta: dict) -> dict:
 
         kind = classify(path, props)
         leaf = path.rsplit("/", 1)[-1] or "/"
+
+        # Drop phandle noise and anything unserialisable from the payload.
+        payload = {
+            k: v for k, v in props.items()
+            if k not in ("phandle", "linux,phandle", "name")
+            and isinstance(v, (str, int, bool, list))
+        }
+        if redact:
+            payload, hits = redact_props(payload)
+            redacted += hits
         # /sys/class/regulator/*/name reports a PMIC rail by its bare node name
         # ("l10"), so fall back to that when the node carries no regulator-name.
         # Without it every rail on the device has an empty label and nothing in
@@ -184,11 +232,7 @@ def build_spec(tree: dict[str, dict], meta: dict) -> dict:
             "status": status if isinstance(status, str) else "okay",
             "label": label if isinstance(label, str) else "",
             # Drop phandle noise and anything unserialisable from the payload.
-            "props": {
-                k: v for k, v in props.items()
-                if k not in ("phandle", "linux,phandle", "name")
-                and isinstance(v, (str, int, bool, list))
-            },
+            "props": payload,
         })
 
         # --- structural edge: child -> parent bus ---------------------------
@@ -258,6 +302,14 @@ def build_spec(tree: dict[str, dict], meta: dict) -> dict:
             if target:
                 edges.append({"src": path, "dst": target,
                               "kind": "interrupts_to", "label": ""})
+
+    meta["redacted"] = redacted if redact else -1
+    if redacted:
+        print(f"[jacos] redacted {redacted} unit-identifying propert"
+              f"{'y' if redacted == 1 else 'ies'}", file=sys.stderr)
+    elif not redact:
+        print("[jacos] WARNING: --keep-identifiers set; snapshot identifies "
+              "this specific device", file=sys.stderr)
 
     if unresolved:
         # Unresolvable phandles stop the parse of that property, because the
@@ -427,6 +479,10 @@ def main(argv=None):
     ap.add_argument("-o", "--out", default="-", help="output JSON path ('-' for stdout)")
     ap.add_argument("--synthesize", action="store_true",
                     help="emit a synthetic perry-shaped fixture instead of reading hardware")
+    ap.add_argument("--keep-identifiers", action="store_true",
+                    help="do NOT redact serial number, MAC addresses and "
+                         "filesystem UUIDs. Snapshots are meant to be "
+                         "committed, so redaction is the default.")
     ap.add_argument("--break-rail", metavar="LABEL",
                     help="mark a regulator disabled, producing a faulty snapshot "
                          "for offline demos (e.g. --break-rail pm8937_l10)")
@@ -459,7 +515,8 @@ def main(argv=None):
         if os.path.exists(uname):
             meta["uname"] = open(uname, encoding="utf-8", errors="replace").read().strip()
 
-        spec = build_spec(read_tree(dt_base), meta)
+        spec = build_spec(read_tree(dt_base), meta,
+                          redact=not args.keep_identifiers)
         spec = overlay_snapshot(spec, snap_dir)
 
     if args.break_rail:
