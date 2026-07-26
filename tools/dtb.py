@@ -29,6 +29,11 @@ import tempfile
 
 # Properties whose value is a bare phandle (or phandle + specifier cells).
 SUPPLY_RE = re.compile(r"^(.*)-supply$")
+
+# Buses where "a device exists but no driver bound" is a genuine probe failure.
+# Deliberately excludes cpu/clocksource/nvmem/auxiliary, whose devices are not
+# things a driver binds to.
+DRIVER_BUSES = {"platform", "i2c", "spi", "mmc", "usb", "spmi"}
 CELL_PROPS = {
     # prop name    -> (edge kind, property on target giving specifier cell count)
     "clocks":      ("clocked_by", "#clock-cells"),
@@ -104,7 +109,17 @@ def classify(path: str, props: dict) -> str:
     compat_s = " ".join(compat) if isinstance(compat, list) else str(compat)
     name = path.rsplit("/", 1)[-1].split("@")[0]
 
-    if "regulator" in compat_s or "regulator-name" in props or name.startswith("regulator"):
+    # A PMIC rail is a bare child of a regulator container: node name `l10`, no
+    # compatible, no regulator-name. What it always has is regulator-* property
+    # constraints, so key off those. Matching on compatible alone finds the four
+    # board-level regulator-fixed nodes and misses all ~50 real rails.
+    if any(k.startswith("regulator-") for k in props):
+        return "regulator"
+    # ...but not the container itself, whose compatible is `*-regulators` plural
+    # and whose only job is to group the rails below it.
+    if "regulator" in compat_s and not compat_s.rstrip().endswith("-regulators"):
+        return "regulator"
+    if name.startswith("regulator") and "regulators" not in name:
         return "regulator"
     if "#clock-cells" in props or "clock-controller" in compat_s or name in ("clocks", "clock"):
         return "clock"
@@ -113,6 +128,23 @@ def classify(path: str, props: dict) -> str:
     if "#address-cells" in props and "#size-cells" in props and path != "/":
         return "bus"
     return "device"
+
+
+def interrupt_parent_of(path: str, tree: dict[str, dict], by_phandle: dict[int, str]):
+    """Resolve a node's interrupt controller, honouring DT inheritance.
+
+    `interrupt-parent` is inherited: a node that declares `interrupts` but no
+    `interrupt-parent` routes to the nearest ancestor that does. Resolving it
+    self-only is the difference between 6 edges and 60 on a real tree.
+    """
+    node = path
+    while True:
+        cells = as_cells(tree.get(node, {}).get("interrupt-parent"))
+        if cells:
+            return by_phandle.get(cells[0])
+        if node == "/":
+            return None
+        node = node.rsplit("/", 1)[0] or "/"
 
 
 def build_spec(tree: dict[str, dict], meta: dict) -> dict:
@@ -126,6 +158,7 @@ def build_spec(tree: dict[str, dict], meta: dict) -> dict:
                 by_phandle[v] = path
 
     nodes, edges = [], []
+    unresolved: list[tuple[str, str, int]] = []
 
     for path, props in sorted(tree.items()):
         compat = props.get("compatible", [])
@@ -133,13 +166,23 @@ def build_spec(tree: dict[str, dict], meta: dict) -> dict:
             compat = [compat]
         status = props.get("status", "okay")
 
+        kind = classify(path, props)
+        leaf = path.rsplit("/", 1)[-1] or "/"
+        # /sys/class/regulator/*/name reports a PMIC rail by its bare node name
+        # ("l10"), so fall back to that when the node carries no regulator-name.
+        # Without it every rail on the device has an empty label and nothing in
+        # the runtime overlay can match.
+        label = props.get("regulator-name") or props.get("label") or ""
+        if not label and kind == "regulator":
+            label = leaf.split("@")[0]
+
         nodes.append({
             "path": path,
-            "name": path.rsplit("/", 1)[-1] or "/",
-            "kind": classify(path, props),
+            "name": leaf,
+            "kind": kind,
             "compatible": compat if isinstance(compat, list) else [],
             "status": status if isinstance(status, str) else "okay",
-            "label": props.get("regulator-name") or props.get("label") or "",
+            "label": label if isinstance(label, str) else "",
             # Drop phandle noise and anything unserialisable from the payload.
             "props": {
                 k: v for k, v in props.items()
@@ -177,7 +220,11 @@ def build_spec(tree: dict[str, dict], meta: dict) -> dict:
             while i < len(cells):
                 target = by_phandle.get(cells[i])
                 if target is None:
-                    break  # unresolvable phandle; bail rather than misparse the rest
+                    # The specifier width lives on the target, so without it we
+                    # cannot know how many cells to skip. Bail rather than
+                    # misparse the rest of the list into bogus edges.
+                    unresolved.append((path, key, cells[i]))
+                    break
                 width = tree.get(target, {}).get(cells_prop, 0)
                 width = width if isinstance(width, int) else 0
                 edges.append({
@@ -188,10 +235,38 @@ def build_spec(tree: dict[str, dict], meta: dict) -> dict:
                 n += 1
 
         # --- interrupt routing ---------------------------------------------
-        for ph in as_cells(props.get("interrupt-parent")):
-            target = by_phandle.get(ph)
+        # Precedence is defined by the spec:
+        #   1. `interrupts-extended` carries its own <&ctrl specifier...> pairs
+        #      and overrides everything else.
+        #   2. otherwise `interrupts` routes to the inherited interrupt parent.
+        # An `interrupt-parent` with no `interrupts` is inherited configuration
+        # for descendants, not an interrupt of this node -- no edge for it.
+        ext = as_cells(props.get("interrupts-extended"))
+        if ext:
+            i = 0
+            while i < len(ext):
+                target = by_phandle.get(ext[i])
+                if target is None:
+                    unresolved.append((path, "interrupts-extended", ext[i]))
+                    break
+                width = tree.get(target, {}).get("#interrupt-cells", 0)
+                edges.append({"src": path, "dst": target,
+                              "kind": "interrupts_to", "label": ""})
+                i += 1 + (width if isinstance(width, int) else 0)
+        elif "interrupts" in props:
+            target = interrupt_parent_of(path, tree, by_phandle)
             if target:
-                edges.append({"src": path, "dst": target, "kind": "interrupts_to", "label": ""})
+                edges.append({"src": path, "dst": target,
+                              "kind": "interrupts_to", "label": ""})
+
+    if unresolved:
+        # Unresolvable phandles stop the parse of that property, because the
+        # specifier width lives on the target we just failed to find. Say so --
+        # a silently short edge list is the failure mode that hides real gaps.
+        print(f"[jacos] warning: {len(unresolved)} unresolvable phandle reference(s)",
+              file=sys.stderr)
+        for p, prop, ph in unresolved[:5]:
+            print(f"[jacos]   {p} {prop} -> phandle 0x{ph:x}", file=sys.stderr)
 
     return {"meta": meta, "nodes": nodes, "edges": edges}
 
@@ -202,15 +277,35 @@ def build_spec(tree: dict[str, dict], meta: dict) -> dict:
 
 def overlay_snapshot(spec: dict, snap_dir: str) -> dict:
     """Fold captured runtime state (driver binding, regulators) into the spec."""
+    # Two indexes: by device tree path (authoritative, from of_node) and by
+    # sysfs device name (fallback for captures taken before of_node was
+    # recorded, and for devices with no of_node at all).
+    by_path: dict[str, str] = {}
     binding: dict[str, str] = {}
     tsv = os.path.join(snap_dir, "driver-binding.tsv")
     if os.path.exists(tsv):
         with open(tsv, encoding="utf-8", errors="replace") as fh:
             for line in fh:
                 parts = line.rstrip("\n").split("\t")
-                if len(parts) == 3:
-                    _bus, dev, drv = parts
-                    binding[dev] = drv
+                if len(parts) < 3:
+                    continue
+                bus, dev, drv = parts[0], parts[1], parts[2]
+                if bus not in DRIVER_BUSES:
+                    # cpu, clocksource, nvmem and friends expose devices that
+                    # never bind a driver by design. Counting them makes every
+                    # CPU core look like a failed probe.
+                    continue
+                binding[dev] = drv
+                of = parts[3] if len(parts) > 3 else ""
+                if not of:
+                    continue
+                # Several sysfs devices can share one tree node -- an i2c
+                # controller appears both as the platform device
+                # "78b7000.i2c" (which binds i2c_qup) and as the adapter
+                # "i2c-1" (which binds nothing). Let a bound entry win, or the
+                # adapter overwrites the controller and the bus reads as dead.
+                if of not in by_path or (drv and not by_path[of]):
+                    by_path[of] = drv
 
     regs: dict[str, dict] = {}
     rtsv = os.path.join(snap_dir, "regulators.tsv")
@@ -224,13 +319,30 @@ def overlay_snapshot(spec: dict, snap_dir: str) -> dict:
     for n in spec["nodes"]:
         # sysfs device names are typically "<unit-addr>.<node-name>", e.g.
         # "78b6000.i2c" for /soc/i2c@78b6000 -- reconstruct and match.
+        # Prefer the of_node join; fall back to the platform naming convention
+        # "<unit-addr>.<node-name>", e.g. "78b6000.i2c" for /soc/i2c@78b6000.
         leaf = n["name"]
+        key = leaf
         if "@" in leaf:
             nm, addr = leaf.split("@", 1)
             key = f"{addr}.{nm}"
-            if key in binding:
-                n["driver"] = binding[key]
-                n["bound"] = bool(binding[key])
+
+        if n["path"] in by_path:
+            drv, present = by_path[n["path"]], True
+        elif key in binding:
+            drv, present = binding[key], True
+        else:
+            drv, present = "", False
+
+        # Recording *whether the device exists at all*, separately from whether
+        # it bound, is what lets replay distinguish "did not probe" from "was
+        # never a driver model device". Without it every opp-table and
+        # idle-states node reads as a probe failure.
+        if binding:
+            n["in_sysfs"] = 1 if present else 0
+        if present:
+            n["driver"] = drv
+            n["bound"] = bool(drv)
         if n["kind"] == "regulator" and n.get("label") in regs:
             r = regs[n["label"]]
             n["reg_state"] = r["state"]
