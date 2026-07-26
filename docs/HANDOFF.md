@@ -226,16 +226,38 @@ The real dependency chain the demo walks: `touchscreen@20` → `vdda_touch_vreg`
 That is a genuine MSM8937 power tree, not the synthetic fixture.
 
 **Note the demo script needs updating:** the touchscreen on this phone is
-*healthy* (`rmi4_i2c` bound). The fault has to be injected — either
-`--break-rail l6` into a snapshot and run replay, or
-`scripts/20-fault-inject.sh` for a live unbind. `--break-rail` only affects
-replay mode, because live mode re-reads sysfs and overrides the snapshot.
+*healthy* (`rmi4_i2c` bound). The fault has to be injected. Both paths are
+verified on hardware, and they tell different stories — pick deliberately.
+
+**Live unbind** (`sudo sh scripts/20-fault-inject.sh unbind i2c 1-0020`,
+restore with `rebind i2c 1-0020 rmi4_i2c`) produces a real two-hop cascade:
+
+```
+! hop 1  /soc@0/i2c@78b7000/touchscreen@20   NO DRIVER BOUND
+! hop 2  /vdda_touch_vreg                     rail vdda_touch is disabled
+ROOT CAUSE: /vdda_touch_vreg
+```
+
+That second hop is not a bug and not staged. Unbinding the driver drops its
+regulator reference, `vdda_touch` goes `num_users` 1 → 0 and powers down;
+rebinding brings it back to `enabled`/1. Verified both directions.
+
+But note the causality is **inverted relative to what was injected**: we broke
+the driver and the tool blames the rail, because its ranking prefers the
+deepest fault in the dependency chain. That heuristic is right for real
+bring-up (a dead rail is why a device does not probe) and wrong for this
+particular injection. A judge who watched you type `unbind` may well ask.
+
+**`--break-rail l6` in replay mode** has causality running the way the story
+does — rail dead, therefore device dead — and lands the root cause at hop 3.
+`--break-rail` only affects replay, because live mode re-reads sysfs and
+overrides the snapshot. Safer narration, no hardware state to restore.
 
 **NOT done — this is where to resume:**
 
 1. Rehearse the 4-minute demo against real hardware end to end.
-2. `scripts/20-fault-inject.sh` (live driver unbind) has not been run on the
-   real device yet — only the snapshot `--break-rail` path is verified.
+2. Decide which fault-injection path the demo uses (see above) and rehearse
+   that one specifically, including the restore.
 3. Make the repo public before judging (command in §2).
 4. `clk_summary` parsing is still unimplemented; clocks assess as "present".
    The file *is* now capturable (68 KB, needs sudo + debugfs), so the data is
