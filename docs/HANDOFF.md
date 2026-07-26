@@ -152,8 +152,38 @@ Jac 0.16.7. `pip install jaclang byllm` on the laptop reproduces everything.
   not source the profile, so `~/.local/bin/jac` is not on PATH.
 - **CRLF breaks shell scripts on Alpine** (`bad interpreter`). `.gitattributes`
   forces LF. scp from Windows also drops the execute bit — `chmod +x` after.
+- **`cp -h` does not exist** in busybox or coreutils. Use `-L`. Paired with
+  `2>/dev/null` it produced an empty device tree capture that looked like
+  success. Any capture step needs a hard post-check, not a silent redirect.
+- **`~/.ssh/config` with a UTF-8 BOM** (PowerShell `>` or `Set-Content` writes
+  one) makes OpenSSH fail with `Bad configuration option: \357\273\277host`.
+  Write it with `-Encoding ascii` or strip the BOM.
 - litellm prints a red provider banner even for MockLLM; `src/quiet.py` must be
   imported before byllm.
+
+**Real device tree (learned 2026-07-26, second session)**
+
+- **`interrupt-parent` is inherited.** A node with `interrupts` and no
+  `interrupt-parent` routes to the nearest ancestor that has one. Resolving it
+  self-only found 6 edges where perry has 79. `interrupts-extended` overrides it
+  entirely and carries its own `<&ctrl specifier...>` pairs.
+- **PMIC rails are bare children of a regulator container** — node name `l10`,
+  no `compatible`, no `regulator-name`. Key off `regulator-*` property
+  constraints, not compatible. Their sysfs label is the bare node name.
+- **Join sysfs to the tree via each device's `of_node` symlink, never by
+  reconstructing the device name.** `<addr>.<name>` is platform-only; i2c is
+  `1-0020`, spi `spi0.1`, mmc `mmc0:0001`. The name heuristic reported the
+  touchscreen as dead while `rmi4_i2c` was bound to it.
+- **One tree node can back two sysfs devices** (i2c controller = platform device
+  + adapter). Prefer whichever bound, or the unbound one wins and the bus reads
+  as dead.
+- **A DT node Linux never instantiated is not a probe failure.** `opp-table`,
+  `idle-states`, `/timer`, `cpu@N` all have compatible strings and never bind.
+  `in_sysfs` carries the ground truth through the graph.
+- Real numbers: **465 nodes, 732 edges**; 464 parent_bus, 126 clocked_by,
+  79 interrupts_to, 40 supplied_by, 18 dma_by, 5 reset_by. 26 regulators, all
+  matched to sysfs. Build ~8 s on the phone, health ~7 s.
+- Device tree docs for this phone: https://github.com/aneesh-pradhan/xylitol
 
 **Tooling gotchas**
 
@@ -178,22 +208,43 @@ ROOT CAUSE: /soc/spmi@200f000/pmic@0/regulators/l10
             rail pm8937_l10 is disabled at 1800 mV
 ```
 
-**Done on the phone:** preflight, SSH keys, passwordless auth.
+**Done on the phone:** preflight, SSH keys, passwordless auth, offline jaclang
+install, real device tree capture, graph build, health, and root-cause
+traversal — all verified against real hardware on 2026-07-26.
+
+The end-to-end run that works today, on the phone and on the laptop:
+
+```
+build   465 nodes, 732 edges from fixtures/perry-live.json
+health  16 findings (9 disabled rails, 7 unbound platform devices)
+diagnose touchscreen -> walks 19 nodes, no fault (touchscreen is healthy)
+--break-rail l6 -> ROOT CAUSE at hop 3, rail l6 disabled at 1800 mV
+```
+
+The real dependency chain the demo walks: `touchscreen@20` → `vdda_touch_vreg`
+→ PMIC rail `l6` → `i2c@78b7000` → `clock-controller@1800000` → `xo-board`.
+That is a genuine MSM8937 power tree, not the synthetic fixture.
+
+**Note the demo script needs updating:** the touchscreen on this phone is
+*healthy* (`rmi4_i2c` bound). The fault has to be injected — either
+`--break-rail l6` into a snapshot and run replay, or
+`scripts/20-fault-inject.sh` for a live unbind. `--break-rail` only affects
+replay mode, because live mode re-reads sysfs and overrides the snapshot.
 
 **NOT done — this is where to resume:**
 
-1. `scp` the repo + wheel to `~/jacos` and run `scripts/30-install-offline.sh`.
-2. **Capture the real device tree** and build the graph from it. *Nothing has
-   ever run against a real DTB.* Expect ~800–1500 nodes vs the synthetic 11.
-3. Rehearse the demo against real hardware.
+1. Rehearse the 4-minute demo against real hardware end to end.
+2. `scripts/20-fault-inject.sh` (live driver unbind) has not been run on the
+   real device yet — only the snapshot `--break-rail` path is verified.
+3. Make the repo public before judging (command in §2).
+4. `clk_summary` parsing is still unimplemented; clocks assess as "present".
+   The file *is* now capturable (68 KB, needs sudo + debugfs), so the data is
+   there if someone wants real clock health.
 
-**Highest open risk: `tools/dtb.py` phandle resolution on a real tree.** It has
-only ever seen an 11-node synthetic fixture. Specific things likely to break:
-`clocks` specifier widths are read from the target's `#clock-cells` and the
-parser bails on the first unresolvable phandle; `interrupts-extended` is not
-handled at all (only `interrupt-parent`); regulator `label`/`regulator-name`
-matching against `/sys/class/regulator` is heuristic. **Tell: node count looks
-right but edge count is suspiciously low.**
+**Remaining risk is presentation, not parsing.** The tree resolves cleanly —
+no unresolvable phandles on perry, all 63 interrupt nodes and all 26 regulators
+matched. The open question is whether 16 findings reads as signal or noise to a
+judge in 4 minutes.
 
 Other open items: byLLM is not installed on the phone and probably should not be
 (litellm drags in pydantic-core and tiktoken, needing musl aarch64 wheels) — run
