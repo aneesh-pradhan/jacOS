@@ -183,6 +183,11 @@ Jac 0.16.7. `pip install jaclang byllm` on the laptop reproduces everything.
 - Real numbers: **465 nodes, 732 edges**; 464 parent_bus, 126 clocked_by,
   79 interrupts_to, 40 supplied_by, 18 dma_by, 5 reset_by. 26 regulators, all
   matched to sysfs. Build ~8 s on the phone, health ~7 s.
+- **Captures are redacted by default.** perry's tree carries `serial-number`,
+  the wcnss wifi `local-mac-address`, and `pmos_boot_uuid`/`pmos_root_uuid` in
+  `/chosen` bootargs. `tools/dtb.py` strips those on capture, because snapshots
+  are committed and the repo is going public. `--keep-identifiers` disables it
+  and warns; do not commit the result.
 - Device tree docs for this phone: https://github.com/aneesh-pradhan/xylitol
 
 **Tooling gotchas**
