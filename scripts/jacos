@@ -1,0 +1,22 @@
+#!/bin/sh
+# JacOS launcher.
+#
+# Runs the CLI against a vendored jaclang (see scripts/30-install-offline.sh)
+# without needing pip, a virtualenv, or ~/.local/bin on PATH -- none of which
+# a non-interactive `ssh perry '...'` session reliably has.
+#
+#   ./scripts/jacos build fixtures/perry.json
+#   ./scripts/jacos diagnose touchscreen -x
+
+set -eu
+
+HERE=$(cd "$(dirname "$0")/.." && pwd)
+
+# A vendored copy wins if present; otherwise fall back to an installed jaclang.
+if [ -d "$HERE/vendor/jaclang" ]; then
+  PYTHONPATH="$HERE/vendor${PYTHONPATH:+:$PYTHONPATH}"
+  export PYTHONPATH
+fi
+
+cd "$HERE"
+exec python3 -m jaclang run src/jacos.jac -- "$@"

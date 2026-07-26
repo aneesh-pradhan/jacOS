@@ -25,3 +25,6 @@ secrets.md
 *.pem
 id_*
 !id_*.pub.example
+
+# Vendored wheel for offline install on the phone (14 MB binary, not source).
+vendor/
