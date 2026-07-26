@@ -38,13 +38,20 @@ sem Diagnosis.next_step =
 
 
 """Offline stand-in so the demo survives a dead network."""
+# Kept in step with fixtures/perry-live.json, NOT the synthetic fixture. If the
+# canned answer names a rail the walker did not actually find, the demo prints
+# "ROOT CAUSE: l6" and then an explanation about pm8937_l10 directly underneath
+# it, and the contradiction is the most visible thing on screen.
 glob MOCK = Diagnosis(
-    root_cause="/soc/spmi@200f000/pmic@0/regulators/l10",
+    root_cause="/vdda_touch_vreg",
     confidence=0.9,
-    reasoning="The touchscreen's vdd supply maps to pm8937_l10, which is disabled. "
-              "With no rail the RMI4 controller never answers on i2c, so the driver "
-              "fails to probe and the input device never appears.",
-    next_step="cat /sys/class/regulator/*/name | grep -n pm8937_l10"
+    reasoning="The touchscreen's vdd supply is the fixed regulator vdda_touch, "
+              "and it is disabled. With no rail the RMI4 controller never answers "
+              "on i2c, so rmi4_i2c fails to probe and no input device appears. "
+              "vdda_touch is consumer-enabled, so it drops as soon as nothing is "
+              "holding it up -- the dead driver and the dead rail are one fault.",
+    next_step="for r in /sys/class/regulator/*/; do "
+              "[ \"$(cat $r/name)\" = vdda_touch ] && cat $r/state $r/num_users; done"
 );
 
 

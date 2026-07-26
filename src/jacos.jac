@@ -61,13 +61,35 @@ def cmd_build(args: list[str]) -> None {
 }
 
 
-def cmd_graph() -> None {
+"""List the graph, optionally filtered to a substring of the node path.
+
+The filter is not a convenience. A real device tree is ~465 nodes, so an
+unfiltered dump scrolls the interesting line off screen -- on perry the
+touchscreen lands at line 218 of 471. Sorted, so a rehearsed demo prints the
+same thing every time.
+"""
+def cmd_graph(args: list[str]) -> None {
     nodes = [root ->:Registry:->];
     if not nodes {
         print("  empty registry -- run `build` first");
         return;
     }
-    print("  " + str(len(nodes)) + " nodes");
+    total = len(nodes);
+    pattern = args[0] if args else "";
+    if pattern {
+        nodes = [n for n in nodes if pattern.lower() in n.path.lower()];
+    }
+    by_path = {};
+    for n in nodes {
+        by_path[n.path] = n;
+    }
+    nodes = [by_path[p] for p in sorted(by_path.keys())];
+    if pattern {
+        print("  " + str(len(nodes)) + " of " + str(total)
+              + " nodes matching '" + pattern + "'");
+    } else {
+        print("  " + str(total) + " nodes");
+    }
     for n in nodes {
         supplies = [n ->:SuppliedBy:->];
         line = "  " + n.kind[0:3] + "  " + n.path;
@@ -200,7 +222,7 @@ with entry {
     if cmd == "build" {
         cmd_build(args);
     } elif cmd == "graph" {
-        cmd_graph();
+        cmd_graph(args);
     } elif cmd == "health" {
         cmd_health();
     } elif cmd == "diagnose" {
