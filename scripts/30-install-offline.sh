@@ -24,6 +24,22 @@ fi
 HERE=$(cd "$(dirname "$0")/.." && pwd)
 DEST="$HERE/vendor"
 
+# Resolve the wheel to an absolute path before touching DEST. The obvious place
+# to scp the wheel is vendor/ itself, and DEST gets wiped below -- so a relative
+# path would pass the -f check above and then be deleted out from under us.
+WHEEL=$(cd "$(dirname "$WHEEL")" && pwd)/$(basename "$WHEEL")
+
+# Same reason: if the wheel lives inside DEST, park it somewhere the wipe
+# cannot reach and extract from there.
+case "$WHEEL" in
+  "$DEST"/*)
+    STAGE=$(mktemp -d)
+    trap 'rm -rf "$STAGE"' EXIT
+    cp "$WHEEL" "$STAGE/"
+    WHEEL="$STAGE/$(basename "$WHEEL")"
+    ;;
+esac
+
 echo "[jacos] unpacking $WHEEL -> $DEST"
 rm -rf "$DEST"
 mkdir -p "$DEST"

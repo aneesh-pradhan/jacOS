@@ -25,15 +25,34 @@ DT=/sys/firmware/devicetree/base
 if [ -d "$DT" ]; then
   echo "[jacos] device tree from $DT"
   mkdir -p "$OUT/devicetree"
-  # -h dereferences the symlink; device tree dirs are small (~1-2 MB).
-  cp -rh "$DT"/. "$OUT/devicetree/" 2>/dev/null
+  # -L dereferences symlinks; device tree dirs are small (~1-2 MB).
+  # NOT -h: busybox cp has no such flag, and neither does coreutils. It exits 1
+  # printing usage, which a 2>/dev/null here silently turned into an empty
+  # capture that only showed up as a graph with no nodes much later.
+  cp -rL "$DT"/. "$OUT/devicetree/"
 else
   echo "[jacos] WARNING: no device tree found" >&2
+fi
+
+# An empty capture is worse than a failed one -- it looks like success and only
+# surfaces as a mysteriously tiny graph. Fail loudly here instead.
+dt_nodes=$(find "$OUT/devicetree" -type d 2>/dev/null | wc -l)
+dt_props=$(find "$OUT/devicetree" -type f 2>/dev/null | wc -l)
+echo "[jacos]   captured $dt_nodes nodes, $dt_props properties"
+if [ "$dt_nodes" -lt 10 ]; then
+  echo "[jacos] ERROR: device tree capture is empty or truncated." >&2
+  exit 1
 fi
 
 # --- driver binding ----------------------------------------------------------
 # Which devices actually got a driver bound. This is the single most useful
 # signal for "why is my touchscreen dead".
+# The 4th column is the device tree path the kernel itself associated with this
+# device, read from its `of_node` symlink. That is the authoritative join back
+# to the tree. Reconstructing it from the sysfs device name only works for
+# platform devices ("78b6000.i2c"); i2c devices are named "1-0020", spi
+# "spi0.1", mmc "mmc0:0001" -- so a name-mangling heuristic silently loses every
+# non-platform device, the touchscreen included.
 echo "[jacos] driver binding"
 {
   for bus in /sys/bus/*/; do
@@ -43,7 +62,16 @@ echo "[jacos] driver binding"
       dn=$(basename "$dev")
       drv=""
       [ -L "$dev/driver" ] && drv=$(basename "$(readlink "$dev/driver")")
-      printf '%s\t%s\t%s\n' "$bn" "$dn" "$drv"
+      of=""
+      if [ -e "$dev/of_node" ]; then
+        of=$(readlink -f "$dev/of_node" 2>/dev/null)
+        case "$of" in
+          /sys/firmware/devicetree/base*) of=${of#/sys/firmware/devicetree/base} ;;
+          /proc/device-tree*)             of=${of#/proc/device-tree} ;;
+        esac
+        [ -z "$of" ] && of="/"
+      fi
+      printf '%s\t%s\t%s\t%s\n' "$bn" "$dn" "$drv" "$of"
     done
   done
 } > "$OUT/driver-binding.tsv" 2>/dev/null
