@@ -22,6 +22,9 @@ node HwNode {
     has bound: bool = False;
     has reg_state: str = "";
     has microvolts: int = 0;
+    # Did the kernel instantiate a device for this node at all? 1 yes, 0 no,
+    # -1 unknown. Distinguishes a failed probe from a pure description node.
+    has in_sysfs: int = -1;
 
     # assessment, written by walkers on arrival
     has healthy: bool = True;
