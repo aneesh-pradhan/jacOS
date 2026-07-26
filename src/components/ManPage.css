@@ -1,0 +1,243 @@
+/* JacOS console -- a man page rendered on a phosphor terminal.
+ *
+ * Same-basename annex beside ManPage.cl.jac, so it auto-scopes and needs no
+ * import. Deliberately committed to a single dark look: this is a terminal
+ * tool and the demo is projected in a dim room, so a light theme would be
+ * worse, not more flexible.
+ */
+
+.man {
+  --bg: #0a0b0a;
+  --paper: #101210;
+  --fg: #cfcabb;
+  --dim: #6d6a5e;
+  --amber: #e0a33e;
+  --bad: #e2604a;
+  --ok: #79bf63;
+  --rule: #262a26;
+
+  min-height: 100vh;
+  padding: 2rem 1rem 4rem;
+  background:
+    radial-gradient(ellipse at 50% 0%, #14181400 0%, #000 140%),
+    var(--bg);
+  color: var(--fg);
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+/* Faint scanlines. Kept very low contrast -- readable beats authentic. */
+.man::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.018) 0px,
+    rgba(255, 255, 255, 0.018) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  z-index: 2;
+}
+
+.man-sheet {
+  max-width: 940px;
+  margin: 0 auto;
+  padding: 1.75rem 2rem 1.25rem;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  box-shadow: 0 0 0 1px #000, 0 24px 60px -20px #000;
+}
+
+/* --- running header / footer ------------------------------------------- */
+
+.man-hdr,
+.man-ftr {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--fg);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 12.5px;
+}
+
+.man-hdr {
+  padding-bottom: 0.9rem;
+  margin-bottom: 1.4rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.man-ftr {
+  padding-top: 0.9rem;
+  margin-top: 1.6rem;
+  border-top: 1px solid var(--rule);
+  color: var(--dim);
+}
+
+.man-hdr span:nth-child(2),
+.man-ftr span:nth-child(2) {
+  color: var(--dim);
+  letter-spacing: 0.04em;
+}
+
+/* --- sections ----------------------------------------------------------- */
+
+.man-sec { margin-bottom: 1.5rem; }
+
+.man-sec h2 {
+  margin: 0 0 0.35rem;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  color: var(--amber);
+}
+
+/* Classic man indent. */
+.man-body { padding-left: 3.5ch; }
+.man-body p { margin: 0 0 0.5rem; }
+
+.man-body b { color: #f0ece0; font-weight: 700; }
+.man-body i { color: var(--amber); font-style: italic; }
+
+.man-dim { color: var(--dim); }
+.man-ok { color: var(--ok); }
+
+.man-sub {
+  margin-top: 1rem !important;
+  color: var(--amber);
+  letter-spacing: 0.06em;
+}
+
+/* --- synopsis ----------------------------------------------------------- */
+
+.man-syn { display: flex; flex-direction: column; gap: 0.3rem; }
+
+.man-cmd {
+  display: flex;
+  align-items: center;
+  gap: 0.5ch;
+}
+
+.man-in {
+  min-width: 22ch;
+  padding: 0.1rem 0.5ch;
+  background: #050605;
+  border: 1px solid var(--rule);
+  color: var(--ok);
+  font: inherit;
+  outline: none;
+}
+
+.man-in:focus { border-color: var(--amber); }
+
+.man-run {
+  margin-left: 0.75ch;
+  padding: 0.05rem 1.1ch;
+  background: transparent;
+  border: 1px solid var(--rule);
+  color: var(--dim);
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.man-run:hover:not(:disabled) {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.man-run:disabled { opacity: 0.35; cursor: default; }
+
+/* --- device tree pane --------------------------------------------------- */
+
+.man-tree {
+  max-height: 340px;
+  overflow: auto;
+  border: 1px solid var(--rule);
+  background: #08090800;
+}
+
+.tr {
+  display: flex;
+  align-items: baseline;
+  gap: 1ch;
+  padding: 0.05rem 0.75ch;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tr:hover { background: #191d19; }
+
+.tr-on {
+  background: #21281f;
+  box-shadow: inset 2px 0 0 var(--amber);
+}
+
+.tr-k {
+  flex: 0 0 3ch;
+  color: var(--dim);
+  font-size: 12px;
+}
+
+.tr-p { color: var(--fg); }
+.tr-bad .tr-p { color: var(--bad); }
+
+.tr-r {
+  color: var(--dim);
+  font-size: 12.5px;
+}
+
+/* --- diagnostics -------------------------------------------------------- */
+
+.man-walk {
+  margin: 0.35rem 0 0.75rem;
+  border-left: 1px solid var(--rule);
+  padding-left: 1.5ch;
+}
+
+.hop {
+  display: flex;
+  gap: 1.5ch;
+  white-space: nowrap;
+  color: var(--dim);
+}
+
+.hop span:nth-child(2) { color: var(--fg); }
+
+.hop-n {
+  flex: 0 0 9ch;
+  color: var(--dim);
+}
+
+.hop-bad .hop-n,
+.hop-bad span:nth-child(2) { color: var(--bad); }
+
+.man-rc {
+  margin-top: 0.75rem;
+  padding: 0.6rem 1.25ch;
+  border: 1px solid var(--bad);
+  background: #1a0f0d;
+}
+
+.man-rc-h {
+  color: var(--bad);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  font-size: 12px;
+}
+
+.man-rc-p { color: #f0ece0; font-weight: 700; }
+.man-rc-d { color: var(--dim); }
+
+@media (max-width: 640px) {
+  .man-sheet { padding: 1.25rem 1rem; }
+  .man-body { padding-left: 1.5ch; }
+  .man-hdr, .man-ftr { font-size: 10.5px; }
+}

@@ -9,6 +9,11 @@ __jac_gen__/
 *.jbc
 .jac/
 
+# Web console client toolchain (bun installs these under .jac/, but a stray
+# top-level node_modules/ appears if npm is ever run here directly).
+node_modules/
+dist/
+
 # Captured device snapshots are large and machine-specific; the canonical
 # committed one is fixtures/perry.json (checked in deliberately -- it is what
 # makes the demo runnable without hardware).

@@ -56,6 +56,11 @@ src/importer.jac    BuildGraph, Lookup — spec -> live graph
 src/diagnose.jac    Diagnose, Survey, Probe walkers
 src/explain.jac     byLLM Diagnosis obj + sem annotations
 src/jacos.jac       CLI entry point
+src/main.jac        WEB entry point (fullstack): server imports + cl{} block
+src/webapi.sv.jac   WEB server half -- walker:pub wrappers + wire view objs
+src/components/ManPage.cl.jac    WEB client UI, drawn as a man page
+src/components/ManPage.impl.jac  WEB handler bodies (all walker spawns)
+src/components/ManPage.css       WEB styling (phosphor-terminal man page)
 src/hw.py           live sysfs vs snapshot replay, one interface
 src/quiet.py        silences litellm's provider banner
 tools/dtb.py        device tree -> node/edge spec, phandle resolution, synthesizer
@@ -281,13 +286,20 @@ sysfs and overrides the snapshot. That is why minute 4 is a laptop step.
 
 **NOT done — this is where to resume:**
 
-1. **Run the timed 4-minute rehearsal.** Everything it needs is verified and
-   committed; what has never been measured is whether it fits in 4 minutes.
-   This is the only remaining task before judging.
-2. Make the repo public before judging (command in §2). **Still private.**
-3. `clk_summary` parsing is still unimplemented; clocks assess as "present".
+1. **Fix the web console's client render crash.** Fully characterised in §7;
+   it is the one thing between the console and working. Start here.
+2. **Run the timed 4-minute rehearsal.** Everything the *terminal* demo needs
+   is verified and committed; what has never been measured is whether it fits
+   in 4 minutes.
+3. **Devpost.** Partial-submission checkpoint 5:50 PM, hard close 7:15 PM. A
+   **demo video** is on the submission checklist and does not exist yet —
+   earlier sessions missed this entirely. Also on the checklist: star
+   `github.com/jaseci-labs/jac`.
+4. `clk_summary` parsing is still unimplemented; clocks assess as "present".
    The file *is* now capturable (68 KB, needs sudo + debugfs), so the data is
    there if someone wants real clock health.
+
+Repo visibility is **done** — flipped public 2026-07-26.
 
 **Remaining risk is presentation, not correctness.** The tree resolves cleanly
 — no unresolvable phandles on perry, all 63 interrupt nodes and all 26
@@ -310,11 +322,126 @@ deploy. Rejected for the event because it competes with rehearsal time and a
 hosted replay of a canned snapshot is strictly less impressive than real
 hardware. Good post-event artifact, and the natural home for the fleet view.
 
-### Resume command
+---
 
-**The phone is already provisioned and healthy** as of the end of the
-2026-07-26 session — jaclang installed, `~/jacos` populated, touchscreen bound,
-no fault injected. To pick up for the rehearsal:
+## 7. The web console (added 2026-07-26, third session)
+
+A second frontend over the same graph, styled as a man page. **Read this before
+touching `src/main.jac`, `src/webapi.sv.jac` or `src/components/`.**
+
+### Why it exists
+
+Two reasons, in order of how much they matter.
+
+The honest one: the submission checklist says *"Code must contain 40% of Jac"*,
+and GitHub's own language stats put the repo at **34.6% Jac** (Python 45.9%,
+Shell 19.4%). `tools/dtb.py` alone is 23,712 bytes — 72% of all Python here.
+Rewriting the phandle parser hours before judging would be reckless, so the
+honest way to move the number is to *add Jac*, not shave Python. After this
+session the source tree measures **46.8% Jac** by bytes. Re-check the number
+GitHub actually publishes with:
+
+```bash
+gh api repos/aneesh-pradhan/jacOS/languages
+```
+
+The better one: the console is not a bolted-on demo. The client calls
+`root spawn DiagnoseNode(query=p)` and the server wrapper spawns **the same
+`Diagnose` walker the CLI spawns**. One graph, one set of walkers, two
+frontends — and no diagnostic logic anywhere in the web layer. If the traversal
+rules change in `diagnose.jac`, both move together and neither can drift. That
+is a much stronger Use-of-Jac claim than a second implementation would be.
+
+### Architecture
+
+Jac 0.16.7 has a full-stack story built in — no `jac-cloud` needed. It turns on
+*codespaces*: `.sv.jac` is server, `.cl.jac` is client (compiled to React via
+Vite/Bun), plain `.jac` mixes both through a `cl { }` block. `kind = "fullstack"`
+in `jac.toml` wires it up and needs the `jac-client` pip plugin.
+
+```
+src/main.jac                     entry: server imports, then cl{} mounting ManPage
+src/webapi.sv.jac                walker:pub wrappers + NodeView/Hop/DiagnosisView
+src/components/ManPage.cl.jac    the man page; owns all state (stateful shell)
+src/components/ManPage.impl.jac  handler bodies -- every one is a walker spawn
+src/components/ManPage.css       phosphor-terminal styling
+```
+
+Endpoints: `LoadTree`, `Status`, `TreeNodes`, `HealthCheck`, `DiagnoseNode`.
+
+Run it:
+
+```bash
+.demovenv/Scripts/jac.exe start src/main.jac --port 8100
+```
+
+Dev mode (`--dev`) splits ports: client on `--port`, API on `port+1`. Without
+`--dev` both are on one port, which is simpler to reason about — prefer it.
+
+### What is verified and what is not
+
+**Server half: verified end to end.** `POST /walker/LoadTree` returns
+`StatusView(device='motorola-perry', nodes=465, edges=732, mode='replay')` and
+`POST /walker/DiagnoseNode {"query":"touchscreen"}` returns a `DiagnosisView`
+whose 19-hop trail is **identical to the CLI's**. The typed `obj`s cross the
+wire hydrated. This is the load-bearing claim and it holds.
+
+**Client half: renders, then crashes.** The page serves 200, React mounts, and
+the man page draws correctly in its loading state — header, NAME, SYNOPSIS,
+DEVICE TREE, SEE ALSO, footer all present and styled. Then `LoadTree` and
+`TreeNodes` both return **200**, and the moment the populated tree renders the
+component throws and blanks the page:
+
+```
+TypeError: Cannot read properties of undefined (reading 'message')
+```
+
+Both RPCs succeed, so **this is a render bug, not a data bug.** Prime suspects,
+in the order worth checking:
+
+1. `n.kind[0:3]` in the tree row — string slicing on a possibly-empty `kind`.
+2. `", ".join(n.rails)` — `rails` undefined on some rows.
+3. The inline `style={{"paddingLeft": ...}}` dict inside a statement slot.
+
+Reproduce: start the server, open `localhost:8100`, watch the browser console.
+`jac browse` is the documented QA tool but **needs Chrome on PATH** (set
+`JACBROWSER_CHROME`); it is not installed on this machine.
+
+### Findings — do not rediscover these
+
+- **`jac create --force` overwrites `jac.toml` and `.gitignore`.** It silently
+  replaced the project's real `jac.toml` (name, description, the `byllm`
+  dependency) with a generic scaffold one. Both were recovered by hand. Back
+  them up before scaffolding anything.
+- **The CSS annex must be named `Comp.css`, NOT `Comp.style.css`.** The bundled
+  `jac-cl-styling` guide says `.style.css`; the compiler actually emits
+  `import "./ManPage.css"`, so the guide's name fails the Vite build with
+  `Could not resolve "./ManPage.css"`. The guide is wrong here.
+- **A stale Vite failure is cached and survives the fix.** After renaming the
+  CSS the identical error kept being served (same "1.3s"/"428ms" timings gave
+  it away). `rm -rf .jac/client/compiled` and restart.
+- **Module resolution anchors at the entry file's directory.** `main.jac` at the
+  repo root loading `src.webapi` makes that module's bare `import from topology`
+  fail with `No module named 'topology'` — and `diagnose.jac`'s `import hw`
+  would fail next. Fix: keep the web entry **inside `src/`** (`entry-point =
+  "src/main.jac"`) so the server resolves modules exactly as the CLI does. Do
+  not hoist `main.jac` to the root.
+- **`jac check` is stricter than `jac run`.** `src/jacos.jac` has always failed
+  `jac check` (`Lookup.found` is an untyped `list`, so spawn results type as
+  `Unknown`) while running fine. Do not "fix" the CLI in response to those
+  errors. New code should still check clean — dict subscripts need `as int` /
+  `as str` casts and spawn results need `as <Walker>`.
+- **E2023, redundant slot braces.** Inside a statement-slot body you are already
+  in slot mode: write `if cond { <X/> }`, not `{if cond { <X/> }}`. The braces
+  are only needed when descending from a JSX element's *children* into a slot.
+- **`jac guide <name>` is the authoritative Jac reference** and ships with the
+  compiler. `jac guide` lists ~25 of them. `jac-cl-components`,
+  `jac-fullstack-patterns` and `jac-cl-styling` are the ones that matter here.
+  They are far better than guessing at the syntax.
+- Client walker spawns take **kwargs**; `def:pub` function RPCs take
+  **positional args only** (kwargs 422). Reader responses are cached 60s.
+
+### Resume command
 
 ```bash
 ssh perry 'cd ~/jacos && ./scripts/jacos build fixtures/perry-live.json && ./scripts/jacos diagnose touchscreen'
@@ -324,11 +451,16 @@ That must report **no faults**. A healthy start is what makes the injected
 fault mean something. Then follow `docs/DEMO.md` — it is current and every
 command in it has been run.
 
-Laptop side, needed for minute 4 (scratchpad venvs do not survive a session):
+Laptop side, needed for minute 4 (scratchpad venvs do not survive a session).
+`jac-client` is needed only for the web console, not for the terminal demo:
 
 ```bash
-python -m venv .demovenv && .demovenv/Scripts/python.exe -m pip install jaclang byllm
+python -m venv .demovenv && .demovenv/Scripts/python.exe -m pip install jaclang byllm jac-client
 ```
+
+The first `jac start` after a fresh venv downloads Bun and ~80 npm packages
+into `.jac/` (about 90 s). `.jac/` is gitignored, so a clone pays that cost
+once. Budget for it — do not discover it on stage.
 
 If the phone was reflashed or `~/jacos` is gone, reprovision from scratch:
 
