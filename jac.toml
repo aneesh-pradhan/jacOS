@@ -1,0 +1,10 @@
+[project]
+name = "jacos"
+version = "0.1.0"
+description = "JacOS -- the Linux device tree as a first-class Jac graph"
+entry-point = "src/jacos.jac"
+
+[dependencies]
+# byllm is optional: only `diagnose -x` needs it, and it pulls in litellm,
+# which is heavy to install on the phone. Everything else runs without it.
+byllm = ">=0.4.0"

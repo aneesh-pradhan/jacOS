@@ -1,0 +1,230 @@
+{
+  "meta": {
+    "source": "synthesized",
+    "device": "motorola-perry (synthetic)",
+    "arch": "aarch64",
+    "has_runtime_overlay": true
+  },
+  "nodes": [
+    {
+      "path": "/",
+      "name": "/",
+      "kind": "device",
+      "compatible": [
+        "motorola,perry",
+        "qcom,msm8937"
+      ],
+      "status": "okay",
+      "label": "",
+      "props": {}
+    },
+    {
+      "path": "/soc",
+      "name": "soc",
+      "kind": "bus",
+      "compatible": [],
+      "status": "okay",
+      "label": "",
+      "props": {}
+    },
+    {
+      "path": "/soc/intc@b000000",
+      "name": "intc@b000000",
+      "kind": "irq_controller",
+      "compatible": [
+        "qcom,msm-qgic2"
+      ],
+      "status": "okay",
+      "label": "",
+      "props": {}
+    },
+    {
+      "path": "/soc/clock-controller@1800000",
+      "name": "clock-controller@1800000",
+      "kind": "clock",
+      "compatible": [
+        "qcom,gcc-msm8937"
+      ],
+      "status": "okay",
+      "label": "",
+      "props": {}
+    },
+    {
+      "path": "/soc/spmi@200f000",
+      "name": "spmi@200f000",
+      "kind": "bus",
+      "compatible": [
+        "qcom,spmi-pmic-arb"
+      ],
+      "status": "okay",
+      "label": "",
+      "props": {},
+      "driver": "spmi_pmic_arb",
+      "bound": true
+    },
+    {
+      "path": "/soc/spmi@200f000/pmic@0",
+      "name": "pmic@0",
+      "kind": "device",
+      "compatible": [
+        "qcom,pm8937"
+      ],
+      "status": "okay",
+      "label": "",
+      "props": {},
+      "driver": "qcom_spmi_pmic",
+      "bound": true
+    },
+    {
+      "path": "/soc/spmi@200f000/pmic@0/regulators/l10",
+      "name": "l10",
+      "kind": "regulator",
+      "compatible": [
+        "qcom,rpm-smd-regulator"
+      ],
+      "status": "okay",
+      "label": "pm8937_l10",
+      "props": {},
+      "reg_state": "enabled",
+      "microvolts": 1800000
+    },
+    {
+      "path": "/soc/spmi@200f000/pmic@0/regulators/l6",
+      "name": "l6",
+      "kind": "regulator",
+      "compatible": [
+        "qcom,rpm-smd-regulator"
+      ],
+      "status": "okay",
+      "label": "pm8937_l6",
+      "props": {},
+      "reg_state": "enabled",
+      "microvolts": 1800000
+    },
+    {
+      "path": "/soc/i2c@78b6000",
+      "name": "i2c@78b6000",
+      "kind": "bus",
+      "compatible": [
+        "qcom,i2c-qup-v2.2.1"
+      ],
+      "status": "okay",
+      "label": "",
+      "props": {},
+      "driver": "i2c_qup",
+      "bound": true
+    },
+    {
+      "path": "/soc/i2c@78b6000/touchscreen@20",
+      "name": "touchscreen@20",
+      "kind": "device",
+      "compatible": [
+        "synaptics,rmi4-i2c"
+      ],
+      "status": "okay",
+      "label": "",
+      "props": {},
+      "driver": "rmi4_i2c",
+      "bound": true
+    },
+    {
+      "path": "/soc/mmc@7824900",
+      "name": "mmc@7824900",
+      "kind": "device",
+      "compatible": [
+        "qcom,sdhci-msm-v4"
+      ],
+      "status": "okay",
+      "label": "",
+      "props": {},
+      "driver": "sdhci_msm",
+      "bound": true
+    }
+  ],
+  "edges": [
+    {
+      "src": "/soc",
+      "dst": "/",
+      "kind": "parent_bus",
+      "label": ""
+    },
+    {
+      "src": "/soc/intc@b000000",
+      "dst": "/soc",
+      "kind": "parent_bus",
+      "label": ""
+    },
+    {
+      "src": "/soc/clock-controller@1800000",
+      "dst": "/soc",
+      "kind": "parent_bus",
+      "label": ""
+    },
+    {
+      "src": "/soc/spmi@200f000",
+      "dst": "/soc",
+      "kind": "parent_bus",
+      "label": ""
+    },
+    {
+      "src": "/soc/spmi@200f000/pmic@0",
+      "dst": "/soc/spmi@200f000",
+      "kind": "parent_bus",
+      "label": ""
+    },
+    {
+      "src": "/soc/i2c@78b6000",
+      "dst": "/soc",
+      "kind": "parent_bus",
+      "label": ""
+    },
+    {
+      "src": "/soc/i2c@78b6000/touchscreen@20",
+      "dst": "/soc/i2c@78b6000",
+      "kind": "parent_bus",
+      "label": ""
+    },
+    {
+      "src": "/soc/mmc@7824900",
+      "dst": "/soc",
+      "kind": "parent_bus",
+      "label": ""
+    },
+    {
+      "src": "/soc/i2c@78b6000/touchscreen@20",
+      "dst": "/soc/spmi@200f000/pmic@0/regulators/l10",
+      "kind": "supplied_by",
+      "label": "vdd"
+    },
+    {
+      "src": "/soc/i2c@78b6000/touchscreen@20",
+      "dst": "/soc/spmi@200f000/pmic@0/regulators/l6",
+      "kind": "supplied_by",
+      "label": "vio"
+    },
+    {
+      "src": "/soc/i2c@78b6000/touchscreen@20",
+      "dst": "/soc/intc@b000000",
+      "kind": "interrupts_to",
+      "label": ""
+    },
+    {
+      "src": "/soc/i2c@78b6000",
+      "dst": "/soc/clock-controller@1800000",
+      "kind": "clocked_by",
+      "label": "core"
+    },
+    {
+      "src": "/soc/i2c@78b6000",
+      "dst": "/soc/spmi@200f000/pmic@0/regulators/l6",
+      "kind": "supplied_by",
+      "label": "vdd"
+    },
+    {
+      "src": "/soc/mmc@7824900",
+      "dst": "/soc/clock-controller@1800000",
+      "kind": "clocked_by",
+      "label": "core"
+    }
+  ]
+}

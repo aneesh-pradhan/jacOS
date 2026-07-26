@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Jac build output
+__jac_gen__/
+*.jbc
+.jac/
+
+# Captured device snapshots are large and machine-specific; the canonical
+# committed one is fixtures/perry.json (checked in deliberately -- it is what
+# makes the demo runnable without hardware).
+fixtures/*.tar.gz
+fixtures/jacos-snapshot/
+
+.env
+.DS_Store
