@@ -1,0 +1,10 @@
+# The scripts in scripts/ run on the phone under busybox ash. If git checks
+# them out with CRLF on a Windows dev box and they get copied to the device,
+# the shebang line ends in \r and the kernel reports "bad interpreter".
+# Force LF for everything that is executed rather than just read.
+*.sh    text eol=lf
+*.jac   text eol=lf
+*.py    text eol=lf
+*.json  text eol=lf
+*.toml  text eol=lf
+*.md    text eol=lf
