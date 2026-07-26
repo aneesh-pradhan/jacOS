@@ -101,8 +101,31 @@ else
   info "/sys/kernel/debug/clk/clk_summary unreadable -- mount -t debugfs none /sys/kernel/debug"
 fi
 
+# --- Path D -- vendored wheel on PYTHONPATH ---------------------------------
+# This is the path JacOS actually ships (scripts/30-install-offline.sh): the
+# wheel is pure Python, so it needs neither pip nor network. Check it last but
+# treat it as a pass -- without this the preflight reports FAIL on a device
+# where the whole pipeline demonstrably runs.
+say "6. Path D -- vendored wheel on PYTHONPATH (what JacOS ships)"
+VENDOR=$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)/vendor
+if [ -d "$VENDOR/jaclang" ]; then
+  if PYTHONPATH="$VENDOR" python3 -m jaclang --version >/dev/null 2>&1; then
+    ok "Vendored jaclang runs from $VENDOR"
+    PATH_D=yes
+  else
+    note "$VENDOR exists but python3 -m jaclang failed there."
+    PATH_D=no
+  fi
+else
+  note "No unpacked wheel yet. Run: sh scripts/30-install-offline.sh <wheel>"
+  PATH_D=no
+fi
+
 say "VERDICT"
-if [ "${PATH_A:-no}" = "yes" ] || [ "${PATH_B:-no}" = "yes" ]; then
+if [ "${PATH_D:-no}" = "yes" ]; then
+  ok "Jac runs here via the vendored wheel. Proceed."
+  exit 0
+elif [ "${PATH_A:-no}" = "yes" ] || [ "${PATH_B:-no}" = "yes" ]; then
   ok "Jac can run on this device. Proceed."
   exit 0
 else
