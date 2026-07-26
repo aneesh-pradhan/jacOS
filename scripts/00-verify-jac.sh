@@ -63,11 +63,15 @@ if command -v python3 >/dev/null 2>&1; then
       ok "jaclang already importable."
       PATH_B=yes
     else
-      info "jaclang not installed. Try: pip3 install --break-system-packages jaclang"
-      info "NOTE: jaclang depends on llvmlite, which ships no musl wheels."
-      info "      If pip tries to BUILD llvmlite from source, abort -- that needs a full"
-      info "      LLVM toolchain. Check whether llvmlite is only needed for .na.jac"
-      info "      native compilation; the bytecode path may work without it."
+      info "jaclang not installed. On musl, install it WITHOUT its only dependency:"
+      info ""
+      info "    pip3 install --break-system-packages --no-deps jaclang"
+      info ""
+      info "llvmlite is jaclang's sole declared dependency and ships no musl wheels,"
+      info "so a plain install tries to build it from source and needs a full LLVM"
+      info "toolchain. Nothing in jaclang actually imports it -- it is only reachable"
+      info "through the .na.jac native codegen path, which JacOS does not use. Verified:"
+      info "the whole pipeline produces identical output with llvmlite absent."
       PATH_B=unknown
     fi
   else

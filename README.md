@@ -83,6 +83,8 @@ no prompt template and no output parsing in `src/explain.jac`.
 
 ```bash
 pip install jaclang byllm          # byllm is optional; only `diagnose -x` needs it
+# on postmarketOS / Alpine (musl), skip the llvmlite dependency entirely:
+#   pip3 install --break-system-packages --no-deps jaclang
 
 # generate a synthetic snapshot so you can run with no phone attached
 python tools/dtb.py --synthesize -o fixtures/perry.json
