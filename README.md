@@ -86,36 +86,53 @@ pip install jaclang byllm          # byllm is optional; only `diagnose -x` needs
 # on postmarketOS / Alpine (musl), skip the llvmlite dependency entirely:
 #   pip3 install --break-system-packages --no-deps jaclang
 
-# generate a synthetic snapshot so you can run with no phone attached
-python tools/dtb.py --synthesize -o fixtures/perry.json
-python tools/dtb.py --synthesize --break-rail pm8937_l10 -o fixtures/perry-fault.json
-
-jac run src/jacos.jac -- build fixtures/perry-fault.json
-jac run src/jacos.jac -- graph
+# fixtures/perry-live.json is a REAL capture from a Moto E4 running
+# postmarketOS -- 465 nodes, 732 edges, straight out of the running kernel.
+# It is committed, so all of this works with no phone attached.
+jac run src/jacos.jac -- build fixtures/perry-live.json
+jac run src/jacos.jac -- graph touchscreen
 jac run src/jacos.jac -- health
+jac run src/jacos.jac -- diagnose touchscreen        # healthy: finds nothing
+```
+
+`graph` takes a substring filter, because 465 nodes do not fit on a screen:
+
+```
+  1 of 465 nodes matching 'touchscreen'
+  dev  /soc@0/i2c@78b7000/touchscreen@20   <- vdda_touch, l6
+```
+
+That `<-` column is the touchscreen's power dependency, recovered from device
+tree phandles and now a first-class edge. To watch a walker find a fault, break
+the rail behind it:
+
+```bash
+# same real 465-node tree, with the touchscreen's rail disabled
+jac run src/jacos.jac -- build fixtures/perry-live-fault.json
 jac run src/jacos.jac -- diagnose touchscreen
 jac run src/jacos.jac -- diagnose touchscreen -x     # + byLLM explanation
 ```
 
-Output:
-
 ```
-  symptom node: /soc/i2c@78b6000/touchscreen@20
+  symptom node: /soc@0/i2c@78b7000/touchscreen@20
 
-  walked 7 nodes:
-    -> /soc/i2c@78b6000/touchscreen@20
-    -> /soc/spmi@200f000/pmic@0/regulators/l10
-    -> /soc/spmi@200f000/pmic@0/regulators/l6
-    -> /soc/i2c@78b6000
-    -> /soc/clock-controller@1800000
-    -> /soc
-    -> /
+  walked 19 nodes:
+    -> /soc@0/i2c@78b7000/touchscreen@20
+    -> /vdda_touch_vreg
+    -> /remoteproc/smd-edge/rpm-requests/regulators-0/l6
+    -> /soc@0/i2c@78b7000
+    -> /soc@0/clock-controller@1800000
+    -> /clocks/xo-board
+    ...
 
-  ! hop 2  /soc/spmi@200f000/pmic@0/regulators/l10
-           rail pm8937_l10 is disabled at 1800 mV
+  ! hop 2  /vdda_touch_vreg
+           rail vdda_touch is disabled
 
-  ROOT CAUSE: /soc/spmi@200f000/pmic@0/regulators/l10
+  ROOT CAUSE: /vdda_touch_vreg
 ```
+
+No phone and no snapshot tarball? `python tools/dtb.py --synthesize -o
+fixtures/perry.json` emits a small synthetic tree with the same shape.
 
 ## Live vs replay
 

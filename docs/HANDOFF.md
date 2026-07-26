@@ -64,8 +64,10 @@ scripts/10-capture-topology.sh  busybox topology capture
 scripts/20-fault-inject.sh      demo fault injection (driver unbind)
 scripts/30-install-offline.sh   unpack jaclang wheel, no pip
 scripts/jacos                   launcher, sets PYTHONPATH
-fixtures/perry.json             synthetic healthy snapshot
-fixtures/perry-fault.json       synthetic snapshot, pm8937_l10 disabled
+fixtures/perry-live.json        THE REAL CAPTURE -- 465 nodes, what the demo uses
+fixtures/perry-live-fault.json  same tree, vdda_touch disabled -- minute 4 + fallback
+fixtures/perry.json             synthetic healthy snapshot (superseded, 11 nodes)
+fixtures/perry-fault.json       synthetic snapshot, pm8937_l10 disabled (superseded)
 docs/DEMO.md                    minute-by-minute run of show + failure recovery
 vendor/                         gitignored; holds jaclang-0.16.7 wheel
 ```
@@ -104,9 +106,20 @@ auth confirmed working. Device credentials are at `C:\Users\pradh\.jacos\SECRETS
 gitignored secrets file is one `git add -f` from leaking. Password should be
 rotated after the event.
 
-**Dev venvs** (scratchpad, session-specific — recreate if gone):
-`venv` full install, `nollvm` jaclang `--no-deps`, `bare` empty for PYTHONPATH
-testing, `vendor/` unpacked wheel.
+**Dev venvs are scratchpad and session-specific — they will be gone.** Do not
+plan around them. Recreating what the demo needs takes one command:
+
+```bash
+python -m venv .demovenv && .demovenv/Scripts/python.exe -m pip install jaclang byllm
+```
+
+Verified working 2026-07-26 on Windows/Python 3.14 — installs clean, no
+llvmlite problem (that is musl-only). **Minute 4 of the demo needs this**, so
+build it before presenting, not during.
+
+If you only need the CLI and not `-x`, the vendored wheel works with no install
+at all: unzip `vendor/jaclang-0.16.7-py3-none-any.whl` somewhere and set
+`PYTHONPATH` to it. That is what `scripts/jacos` does on the phone.
 
 Jac 0.16.7. `pip install jaclang byllm` on the laptop reproduces everything.
 
@@ -200,18 +213,12 @@ Jac 0.16.7. `pip install jaclang byllm` on the laptop reproduces everything.
 
 ## 5. State: what is done, what is not
 
-**Working and verified end to end** (against the synthetic fixture):
-graph import with phandle resolution; type-dispatched assessment; dependency
-traversal; root-cause ranking; typed byLLM explanation with offline mock;
-live/replay parity; idempotent rebuild across runs; core CLI works without
-`byllm` installed (it is imported lazily inside `cmd_diagnose`).
-
-Correct output on `fixtures/perry-fault.json`:
-
-```
-ROOT CAUSE: /soc/spmi@200f000/pmic@0/regulators/l10
-            rail pm8937_l10 is disabled at 1800 mV
-```
+**Working and verified end to end against the real device:** graph import with
+phandle resolution; type-dispatched assessment; dependency traversal;
+root-cause ranking; typed byLLM explanation with offline mock; live/replay
+parity; idempotent rebuild across runs; core CLI works without `byllm`
+installed (it is imported lazily inside `cmd_diagnose`, and `-x` degrades to a
+message rather than a traceback).
 
 **Done on the phone:** preflight, SSH keys, passwordless auth, offline jaclang
 install, real device tree capture, graph build, health, and root-cause
@@ -230,9 +237,22 @@ The real dependency chain the demo walks: `touchscreen@20` → `vdda_touch_vreg`
 → PMIC rail `l6` → `i2c@78b7000` → `clock-controller@1800000` → `xo-board`.
 That is a genuine MSM8937 power tree, not the synthetic fixture.
 
-**Note the demo script needs updating:** the touchscreen on this phone is
-*healthy* (`rmi4_i2c` bound). The fault has to be injected. Both paths are
-verified on hardware, and they tell different stories — pick deliberately.
+### The demo — decided, rewritten, and dry-run on hardware
+
+`docs/DEMO.md` is current as of 2026-07-26. **Every command in it was run
+against the real phone and its real output is pasted in.** Do not re-derive it;
+read it and rehearse it.
+
+The touchscreen on this phone is *healthy* (`rmi4_i2c` bound), so the fault is
+injected. **The chosen path is live unbind on the phone for minutes 2–3, plus
+`--break-rail vdda_touch` in replay on the laptop for minute 4.** Both produce
+the same `ROOT CAUSE: /vdda_touch_vreg`, which is what keeps the two halves of
+the demo telling one story. This was chosen over an all-replay demo because
+touching real hardware is the project's strongest claim.
+
+**It is a two-terminal demo.** T1 = `ssh perry`, T2 = laptop. Minute 4 must run
+on T2 because byllm is not installed on the phone and should not be. Discovering
+this on stage is the failure mode DEMO.md now exists to prevent.
 
 **Live unbind** (`sudo sh scripts/20-fault-inject.sh unbind i2c 1-0020`,
 restore with `rebind i2c 1-0020 rmi4_i2c`) produces a real two-hop cascade:
@@ -251,46 +271,78 @@ But note the causality is **inverted relative to what was injected**: we broke
 the driver and the tool blames the rail, because its ranking prefers the
 deepest fault in the dependency chain. That heuristic is right for real
 bring-up (a dead rail is why a device does not probe) and wrong for this
-particular injection. A judge who watched you type `unbind` may well ask.
+particular injection. **A judge who watched you type `unbind` will ask.**
+DEMO.md has the rehearsed answer verbatim — the short version is that the rail
+genuinely fell over because the driver was the consumer holding it up, and the
+walker found that by traversal, not staging.
 
-**`--break-rail l6` in replay mode** has causality running the way the story
-does — rail dead, therefore device dead — and lands the root cause at hop 3.
-`--break-rail` only affects replay, because live mode re-reads sysfs and
-overrides the snapshot. Safer narration, no hardware state to restore.
+**`--break-rail <label>` only affects replay mode**, because live mode re-reads
+sysfs and overrides the snapshot. That is why minute 4 is a laptop step.
 
 **NOT done — this is where to resume:**
 
-1. Rehearse the 4-minute demo against real hardware end to end.
-2. Decide which fault-injection path the demo uses (see above) and rehearse
-   that one specifically, including the restore.
-3. Make the repo public before judging (command in §2).
-4. `clk_summary` parsing is still unimplemented; clocks assess as "present".
+1. **Run the timed 4-minute rehearsal.** Everything it needs is verified and
+   committed; what has never been measured is whether it fits in 4 minutes.
+   This is the only remaining task before judging.
+2. Make the repo public before judging (command in §2). **Still private.**
+3. `clk_summary` parsing is still unimplemented; clocks assess as "present".
    The file *is* now capturable (68 KB, needs sudo + debugfs), so the data is
    there if someone wants real clock health.
 
-**Remaining risk is presentation, not parsing.** The tree resolves cleanly —
-no unresolvable phandles on perry, all 63 interrupt nodes and all 26 regulators
-matched. The open question is whether 16 findings reads as signal or noise to a
-judge in 4 minutes.
+**Remaining risk is presentation, not correctness.** The tree resolves cleanly
+— no unresolvable phandles on perry, all 63 interrupt nodes and all 26
+regulators matched. The open questions are whether the demo fits in 4 minutes
+and whether 16 health findings reads as signal or noise to a judge.
 
-Other open items: byLLM is not installed on the phone and probably should not be
-(litellm drags in pydantic-core and tiktoken, needing musl aarch64 wheels) — run
-`diagnose -x` from the laptop against a captured snapshot, or use
-`JACOS_LLM=mock`. `clk_summary` parsing for real clock health is unimplemented;
-clocks currently assess as "present." `jac-cloud` fleet view is unstarted.
+byLLM is not installed on the phone and should not be (litellm drags in
+pydantic-core and tiktoken, needing musl aarch64 wheels). `-x` is a laptop
+step; on the phone it prints "byLLM not available" and keeps going.
+`jac-cloud` fleet view is unstarted.
+
+**Post-event, not now: JacHammer deploy.** Assessed 2026-07-26 against
+`docs.jachammer.ai`. It is a browser-based full-stack app builder with GitHub
+import, sandbox deploys (7-day, free) and permanent deploys. Live mode is
+impossible there — no `/sys` — but `hw.py` auto-detects that
+(`LIVE = os.path.isdir(DT_BASE)`) and falls back to replay with no code change,
+and byLLM would work better there than on musl. The real blocker is that JacOS
+is a CLI and JacHammer deploys web apps, so it is a frontend build, not a
+deploy. Rejected for the event because it competes with rehearsal time and a
+hosted replay of a canned snapshot is strictly less impressive than real
+hardware. Good post-event artifact, and the natural home for the fleet view.
 
 ### Resume command
 
+**The phone is already provisioned and healthy** as of the end of the
+2026-07-26 session — jaclang installed, `~/jacos` populated, touchscreen bound,
+no fault injected. To pick up for the rehearsal:
+
 ```bash
-ssh perry 'mkdir -p ~/jacos'
-scp -r src tools scripts fixtures vendor perry:~/jacos/
-ssh perry 'cd ~/jacos && sh scripts/30-install-offline.sh vendor/jaclang-0.16.7-py3-none-any.whl'
-ssh -t perry 'cd ~/jacos && sudo sh scripts/10-capture-topology.sh && python3 tools/dtb.py /tmp/jacos-snapshot -o fixtures/perry.json'
-ssh perry 'cd ~/jacos && chmod +x scripts/jacos && ./scripts/jacos build fixtures/perry.json && ./scripts/jacos health'
+ssh perry 'cd ~/jacos && ./scripts/jacos build fixtures/perry-live.json && ./scripts/jacos diagnose touchscreen'
+```
+
+That must report **no faults**. A healthy start is what makes the injected
+fault mean something. Then follow `docs/DEMO.md` — it is current and every
+command in it has been run.
+
+Laptop side, needed for minute 4 (scratchpad venvs do not survive a session):
+
+```bash
+python -m venv .demovenv && .demovenv/Scripts/python.exe -m pip install jaclang byllm
+```
+
+If the phone was reflashed or `~/jacos` is gone, reprovision from scratch:
+
+```bash
+ssh perry 'mkdir -p ~/jacos/vendor'
+scp -r src tools scripts fixtures perry:~/jacos/
+scp vendor/jaclang-0.16.7-py3-none-any.whl perry:~/jacos/vendor/
+ssh perry 'cd ~/jacos && chmod +x scripts/*.sh scripts/jacos && sh scripts/30-install-offline.sh vendor/jaclang-0.16.7-py3-none-any.whl'
+ssh perry 'cd ~/jacos && sudo sh scripts/10-capture-topology.sh && sudo chown -R xylitol /tmp/jacos-snapshot && python3 tools/dtb.py /tmp/jacos-snapshot -o fixtures/perry-live.json'
 ```
 
 Then pull the snapshot back for the replay fallback:
 
 ```bash
-scp perry:~/jacos/fixtures/perry.json fixtures/perry-live.json
+scp perry:~/jacos/fixtures/perry-live.json fixtures/perry-live.json
+scp perry:/tmp/jacos-snapshot.tar.gz fixtures/perry-snapshot.tar.gz   # gitignored, but minute 4 needs it
 ```

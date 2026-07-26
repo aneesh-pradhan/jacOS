@@ -107,9 +107,11 @@ available to you — do not wing it.
 Switch to **T2, the laptop.** Prepared beforehand:
 
 ```bash
-python tools/dtb.py fixtures/perry-snapshot.tar.gz --break-rail vdda_touch -o /tmp/vt.json
-jac run src/jacos.jac -- build /tmp/vt.json
+jac run src/jacos.jac -- build fixtures/perry-live-fault.json
 ```
+
+That fixture is the same real 465-node tree with `vdda_touch` disabled — the
+same fault the phone is showing. It is committed, so nothing needs generating.
 
 On stage, one command:
 
@@ -149,7 +151,7 @@ Confirm with `./scripts/jacos diagnose touchscreen` → "no faults".
 
 | Failure | Recovery |
 |---|---|
-| Phone unreachable | Do the whole demo on T2. `JACOS_MODE=replay`, build from the `--break-rail vdda_touch` snapshot. Say "I captured this off the device this morning" — true, and it is the same 465-node tree. |
+| Phone unreachable | Do the whole demo on T2. `JACOS_MODE=replay`, build from `fixtures/perry-live-fault.json`. Say "I captured this off the device this morning" — true, and it is the same 465-node tree. |
 | Phone dies mid-demo | Same, and you already have T2 built and ready. Keep talking. |
 | Walker finds nothing | You forgot to inject, or you rebuilt the graph after injecting in replay mode. In live mode the graph does not need rebuilding — sysfs is re-read on arrival. |
 | `-x` prints "byLLM not available" | You are on the phone, not the laptop. Minute 4 is T2 only. |
