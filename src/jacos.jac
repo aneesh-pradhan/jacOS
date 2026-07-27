@@ -12,6 +12,7 @@ the database.
 """
 
 import sys;
+import os;
 import hw;
 
 import from topology { HwNode, Registry, SuppliedBy }
@@ -23,10 +24,101 @@ import from diagnose { Diagnose, Probe, Survey }
 # on a 1 GB phone. Everything except `diagnose -x` must keep working without it.
 
 
+# --- banner ------------------------------------------------------------------
+# Laid out like neofetch: mark on the left, facts on the right. The facts are
+# read from the live graph rather than hardcoded, so the header is itself a
+# small proof that the registry is loaded and queryable.
+
+glob _LOGO: list[str] = [
+    "     ██╗ █████╗  ██████╗ ██████╗ ███████╗",
+    "     ██║██╔══██╗██╔════╝██╔═══██╗██╔════╝",
+    "     ██║███████║██║     ██║   ██║███████╗",
+    "██   ██║██╔══██║██║     ██║   ██║╚════██║",
+    "╚█████╔╝██║  ██║╚██████╗╚██████╔╝███████║",
+    " ╚════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝"
+];
+
+# busybox on a phone is not guaranteed a UTF-8 locale, and a banner that
+# renders as question marks is worse than no banner. JACOS_ASCII=1 forces this.
+glob _LOGO_ASCII: list[str] = [
+    "     _   _    ____ ___  ____ ",
+    "    | | / \\  / ___/ _ \\/ ___|",
+    " _  | |/ _ \\| |  | | | \\___ \\",
+    "| |_| / ___ \\ |__| |_| |___) |",
+    " \\___/_/   \\_\\____\\___/|____/ "
+];
+
+
+"""The right-hand column: what is actually resident, asked of the graph."""
+def _facts() -> list[str] {
+    nodes = [root ->:Registry:->];
+    rails = 0;
+    for n in nodes {
+        if n.kind == "regulator" {
+            rails += 1;
+        }
+    }
+
+    device = hw.device_model();
+    if not device {
+        device = "replay";
+    }
+
+    graph = "not built -- run `build`";
+    if nodes {
+        graph = str(len(nodes)) + " nodes";
+    }
+
+    return [
+        "jacos@" + device,
+        "-------------------------------",
+        "mode      " + hw.mode(),
+        "graph     " + graph,
+        "rails     " + str(rails) + " regulators",
+        "walkers   Diagnose / Survey / Probe"
+    ];
+}
+
+
 def banner() -> None {
+    art = _LOGO;
+    if os.environ.get("JACOS_ASCII", "") {
+        art = _LOGO_ASCII;
+    }
+
+    amber = "";
+    dim = "";
+    off = "";
+    # NO_COLOR is the de-facto standard opt-out; honour it rather than invent
+    # a flag. chr(27) instead of a backslash escape so nothing depends on how
+    # the string literal is lowered.
+    if not os.environ.get("NO_COLOR", "") {
+        esc = chr(27);
+        amber = esc + "[38;5;214m";
+        dim = esc + "[38;5;244m";
+        off = esc + "[0m";
+    }
+
+    facts = _facts();
+    rows = len(art);
+    if len(facts) > rows {
+        rows = len(facts);
+    }
+
     print("");
-    print("  JacOS -- your hardware, as a graph");
-    print("  mode: " + hw.mode());
+    for i in range(rows) {
+        left = art[i] if i < len(art) else "";
+        right = facts[i] if i < len(facts) else "";
+        # First fact line is the title, the second is its rule; both read as
+        # heading rather than data.
+        tint = dim;
+        if i == 0 {
+            tint = amber;
+        }
+        print("  " + amber + left.ljust(43) + off + tint + right + off);
+    }
+    print("");
+    print("  " + dim + "the Linux device tree as a first-class Jac graph" + off);
     print("");
 }
 

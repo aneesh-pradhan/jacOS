@@ -47,6 +47,18 @@ def _sysfs_name(dt_path: str) -> str:
     return leaf
 
 
+def device_model() -> str:
+    """The board's own name for itself, straight from the device tree.
+
+    `/proc/device-tree/model` is NUL-terminated, hence the strip. Empty in
+    replay mode, where there is no board to ask -- callers decide what to show
+    instead.
+    """
+    if not LIVE:
+        return ""
+    return _read("/proc/device-tree/model").replace("\x00", "").strip()
+
+
 _OF_MAP: dict[str, str] | None = None
 _CLK_SUMMARY_MAP: dict[str, dict] | None = None
 

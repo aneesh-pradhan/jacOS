@@ -808,9 +808,95 @@ that adds a third moving thing is taking that away.
   while it runs. It is labelled with that in the UI. Do not press it on stage;
   the graph is already resident and `Status` proves it in milliseconds.
 
+### What is left, in priority order
+
+1. **The timed 4-minute rehearsal.** Still never measured. This is the single
+   highest-value thing left and it needs a human with a stopwatch.
+2. **The Devpost demo video.** On the submission checklist, still does not
+   exist.
+3. **Star `github.com/jaseci-labs/jac`** — also on the checklist, ten seconds.
+4. **The Pi Zero W capture** (§10). Genuinely nice, genuinely optional.
+5. `jac mcp` and a jac-cloud fleet view — both post-event.
+
+Repo visibility, the 40%-Jac requirement, and the console are all done. As of
+this session `gh api repos/aneesh-pradhan/jacOS/languages` reports Jac 62,691 /
+Python 35,004 / Shell 13,864 / CSS 9,521 — **51.8% Jac**, comfortably over the
+40% the checklist asks for and up from the 34.6% in §7.
+
 ### Stale second build tree
 
 `src/.jac/` exists alongside the real `.jac/` — an older tree from when the
 entry resolved differently. It holds a 2:59 PM `compiled/components/ManPage.css`
 and its own `data/main.db`. Nothing reads it now. It is worth deleting once
 someone confirms the DB in it is not the one being demoed.
+
+---
+
+## 10. The Raspberry Pi, and running this repo with parallel agents
+
+Written 2026-07-26 at the end of the fifth session.
+
+### The Pi Zero W
+
+There is a second board in play. Verified over its serial console this
+session — it is **up, healthy, and untouched by JacOS**:
+
+```
+Raspberry Pi Zero W Rev 1.1   armv6l   Linux 6.18.34+rpt-rpi-v6
+Python 3.13.5    426 MB RAM    57 GB SD, 4% used    34 °C
+162 device tree nodes, 5 regulators, 50 platform devices
+base64, tar, gzip present (no xxd)    sshd active    home dir empty
+```
+
+**Reach it on `COM6` at 115200, not over the network.** A Silicon Labs CP210x
+USB-UART bridge is wired to its console and a shell is already logged in as
+`pi`. The network route does not work here and it is worth knowing why so
+nobody re-debugs it: sshd *is* active and the Pi *does* have an address
+(`10.104.9.37`), but the laptop is on `10.104.8.248` and the two cannot route
+to each other — the venue network isolates clients. `raspberrypi.local` does
+not resolve for the same reason. `pi_capture.py` therefore cannot run as
+designed; it now fails with that explanation instead of looping forever.
+
+A probe script that reads the console without typing anything into it lives in
+the scratchpad pattern below — open the port, send a bare `\r`, collect for a
+few seconds, close. **Only one process may hold `COM6`.** A PuTTY window
+titled `COM6 - PuTTY` had it locked at the start of this session; it was closed
+with permission. Check for one before assuming the adapter is broken.
+
+The capture is worth doing and is not hard: 162 nodes gzip small, and
+`base64` on the Pi plus a decode on the laptop moves the tarball over the
+console in seconds at 115200. The payoff is the strongest version of this
+project's claim — *the same walkers, unmodified, on a completely different
+SoC* — because `topology.jac` and `diagnose.jac` never learn what a BCM2835
+is. Do it after the rehearsal and the video, not before.
+
+### If several agents work this repo at once
+
+Most of this repo parallelises fine. Five things do not, because they are
+single instances of shared state, and two agents touching one of them produce
+failures that look like bugs in the code:
+
+- **Port 8100 and the dev server.** One `jac start` at a time. §8 records two
+  complete server trees alive at once, only the older holding the socket,
+  both printing "Server ready" — there is no way to tell from the banner which
+  one owns the port. Kill every `jac.exe`/`python.exe` tree and confirm the
+  port is free before starting one.
+- **`.jac/data/main.db` — the graph is a shared database.** A `LoadTree` with
+  `force=True` purges and rebuilds it for ~40 s while blocking the whole
+  server, and anything else reading the graph during that window sees a
+  half-built tree. Exactly one agent may own graph rebuilds.
+- **`.jac/client/compiled` and `.jac/client/dist`.** The fix for a stale Vite
+  failure is to delete both, which detonates any concurrent build. One agent
+  owns the client build loop.
+- **`COM6`.** Exclusive lock, one holder, no sharing.
+- **The phone.** One `perry`, and `scripts/20-fault-inject.sh` changes global
+  hardware state — an unbind by one agent is visible to every other.
+
+The work that *does* fan out cleanly, and is worth splitting: the rehearsal
+timing pass, the demo video, the Pi capture, `clk_summary` portability (§9),
+and documentation. Those touch disjoint files and no shared device.
+
+One process rule that matters more with several agents than with one:
+**`git commit -F <file>`, never `-m`.** PowerShell word-splits a `-m` message
+containing double quotes, and the resulting commit log is the one artifact a
+later session cannot repair.

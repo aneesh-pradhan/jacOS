@@ -19,6 +19,21 @@ sv import from ..webapi {
 }
 
 
+# The same mark the CLI prints, so the two frontends open identically. Held as
+# lines and joined at render: jac2js lowers a literal "\n" inside client code
+# to a backslash and an n, so `chr(10)` is the only reliable newline here.
+glob _NL: str = chr(10);
+
+glob _LOGO: list[str] = [
+    "     ██╗ █████╗  ██████╗ ██████╗ ███████╗",
+    "     ██║██╔══██╗██╔════╝██╔═══██╗██╔════╝",
+    "     ██║███████║██║     ██║   ██║███████╗",
+    "██   ██║██╔══██║██║     ██║   ██║╚════██║",
+    "╚█████╔╝██║  ██║╚██████╗╚██████╔╝███████║",
+    " ╚════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝"
+];
+
+
 # --- leaf components ---------------------------------------------------------
 
 """One row of the device tree pane.
@@ -305,9 +320,33 @@ def:pub ManPage -> JsxElement {
     gnodes: list[GraphNode] = diag.nodes if diag is not None else [];
     gedges: list[GraphEdge] = diag.edges if diag is not None else [];
 
+    logo = "";
+    for (li, lrow) in enumerate(_LOGO) {
+        logo = logo + (_NL if li > 0 else "") + lrow;
+    }
+
     return
         <div className="man">
             <div className="man-sheet">
+
+                <div className="man-brand">
+                    <pre className="man-logo" aria-label="JacOS">{logo}</pre>
+                    <div className="man-brand-side">
+                        <div className="man-brand-t">
+                            {"jacos@" + (status.device if status is not None else "…")}
+                        </div>
+                        <div className="man-brand-rule"></div>
+                        <div className="man-brand-k">
+                            {"mode      " + (status.mode if status is not None else "…")}
+                        </div>
+                        <div className="man-brand-k">
+                            {"graph     " + (str(status.nodes) + " nodes" if status is not None else "…")}
+                        </div>
+                        <div className="man-brand-k">
+                            {"walkers   Diagnose / Survey / Probe"}
+                        </div>
+                    </div>
+                </div>
 
                 <header className="man-hdr">
                     <span>JACOS(1)</span>
