@@ -3,9 +3,9 @@
 Everything a fresh session needs to continue without re-deriving anything.
 Written 2026-07-26.
 
-**Start at §11** — the wrap-up state from the sixth session, written just
-before a laptop reboot. Everything above it is background and findings;
-§11 is the punch list.
+**Start at §12** — the seventh session, which closed the two device-validation
+items §11 left open. Everything above it is background and findings; §11 is
+the punch list §12 works against.
 
 ---
 
@@ -966,3 +966,118 @@ are moot and item 4 (Pi validation) is the interesting one.
    against `fixtures/pizero-live.json` and record the numbers. Only then
    claim cross-SoC out loud.
 5. The timed 4-minute rehearsal — still never measured.
+
+---
+
+## 12. Seventh session — both device validations closed
+
+Written 2026-07-27, the day after the Devpost close. §11 items 3 and 4 are
+done; the numbers are below. Nothing in this session was committed.
+
+### Item 3 — the phone, validated end to end
+
+**The USB-network failure was never the phone.** §11 diagnosed it as "no DHCP
+lease from the phone." The real cause is one level down: with the host stuck on
+APIPA `169.254.x`, there is **no route into `172.16.42.0/24`**, so no packet
+ever leaves the interface. The phone's `usb0` was up the entire time, correctly
+holding `172.16.42.1/16`.
+
+This matters because the symptoms mimic dead hardware convincingly. Before the
+static IP the adapter's neighbor table held **only multicast entries, no
+peer**, and `ping -6 ff02::1%<ifIndex>` got no reply — which reads as "nothing
+on the other end" and is entirely explained by having no route. **Check the
+host routing table before suspecting the device.**
+
+- **Rebooting the laptop did not fix it.** §11 lists the reboot as the first
+  thing to try; it was tried and the APIPA state returned. Skip it.
+- The fix is the elevated static IP, and it works completely:
+  `New-NetIPAddress -InterfaceAlias 'Ethernet 4' -IPAddress 172.16.42.2
+  -PrefixLength 24`. Ping went 3/3 at 1 ms, ARP `Reachable`.
+- **Prefer `-PrefixLength 16`** to match the phone's `usb0`. `/24` works only
+  because each subnet happens to contain the other.
+- **The address is `Tentative` for a moment** during duplicate-address
+  detection, and connections opened in that window still time out. One `ssh`
+  attempt failed for this reason alone. Confirm `AddressState: Preferred`
+  before concluding the fix failed.
+
+Resume command result — the §7 gate, unchanged: `465 nodes, 732 edges`,
+`mode: live`, `diagnose touchscreen` walks 19 nodes, **no faults found**.
+
+The unbind round trip was run and matches §5 verbatim in both directions:
+
+```
+unbind i2c 1-0020   -> ! hop 1 touchscreen@20  NO DRIVER BOUND
+                       ! hop 2 /vdda_touch_vreg  rail vdda_touch is disabled
+                       ROOT CAUSE: /vdda_touch_vreg
+rebind i2c 1-0020 rmi4_i2c -> no faults found
+```
+
+The restored walk re-reads live sysfs, so it is independent confirmation the
+rail came back enabled rather than a cached "clean". **The phone was left
+healthy.**
+
+### Item 4 — the Pi Zero, and the limit it exposes
+
+Build and health against `fixtures/pizero-live.json`, replay mode on the
+laptop. **The Pi does not need to be connected for this** — the fixture was
+captured in §11 (commit `0a53fcf`) and this is a pure replay run.
+
+| | Pi Zero W (BCM2835) | perry (MSM8937) |
+|---|---|---|
+| nodes / edges | 162 / 247 | 465 / 732 |
+| device | `raspberrypi-model-zero-w` | `motorola-perry` |
+| regulators | 5 | 26 |
+| health findings | 3 | 18 |
+
+```
+! /cam1_regulator      ::  rail cam1-reg is disabled
+! /chosen              ::  NO DRIVER BOUND -- device did not probe
+! /soc/timer@7e003000  ::  NO DRIVER BOUND -- device did not probe
+```
+
+**The cross-SoC claim is validated, but only for construction and traversal.**
+`topology.jac` and `diagnose.jac` never learn what a BCM2835 is and needed zero
+changes. That part is real and is worth saying out loud.
+
+**Health precision is not validated — 2 of the 3 findings are false
+positives**, and §4's stated defense does not cover them:
+
+- `/chosen` is not a device; it holds bootargs. Pi firmware stamps it
+  `compatible = "simple_bus"`, so `tools/dtb.py` classifies it `kind: "bus"`
+  and it gets assessed.
+- `/soc/timer@7e003000` is a clocksource. Linux drives it through the timer
+  subsystem, never the driver-model probe path, so it legitimately never binds.
+
+**Both have `in_sysfs: 1`.** §4 records that `in_sysfs` carries the ground
+truth for exactly this class of node, and on perry it did — those nodes were
+absent from sysfs entirely. On the Pi they are **present but unbound**, so the
+guard never fires. The heuristic was tuned against one SoC and does not
+transfer. `in_sysfs` is necessary but not sufficient; distinguishing "never
+instantiated" from "failed to probe" needs a second signal.
+
+`/cam1_regulator` is a true reading (`bound: true`, `reg_state: "disabled"`,
+0 µV) — a fixed camera rail that is off because no camera is attached. Correct,
+and benign rather than a fault.
+
+**Recommended framing:** claim the walkers running unmodified on a second SoC;
+do not quote Pi findings counts.
+
+### One cosmetic gotcha worth knowing on a projector
+
+During `build`, the banner printed `graph 465 nodes / rails 26 regulators`
+while the line below announced `built 162 nodes`. The banner renders from the
+graph resident at **startup**, before the rebuild lands. Harmless, but it reads
+as a contradiction on a screen. The subsequent `health` run showed `162 / 5`
+correctly.
+
+### What is left
+
+1. **Tighten the unbound-device heuristic** so `/chosen` and non-probing nodes
+   stop reporting as faults. This is the only real code item and it is what
+   would let health be quoted cross-SoC.
+2. The timed 4-minute rehearsal — still never measured, and moot unless a
+   video is still wanted.
+3. `jac mcp`, jac-cloud fleet view, JacHammer deploy (§5) — all post-event.
+
+Separately, §9's note still stands: `src/.jac/` is a stale second build tree
+and can be deleted once someone confirms its DB is not the one being demoed.
