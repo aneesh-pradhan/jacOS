@@ -510,13 +510,32 @@ def main(argv=None):
         if not os.path.isdir(dt_base):
             sys.exit(f"no device tree at {dt_base}")
 
-        meta = {"source": os.path.abspath(args.source), "device": "motorola-perry"}
+        tree = read_tree(dt_base)
+
+        # Identify the board from the tree itself. This used to be hardcoded to
+        # "motorola-perry", which is wrong the moment you capture anything else
+        # -- and it is not cosmetic: src/jacos.jac and webapi.sv.jac print
+        # meta["device"] as the device name, so a Pi snapshot would announce
+        # itself as the phone. The root node's first `compatible` entry is the
+        # board ("motorola,perry", "raspberrypi,model-zero-w") and the last is
+        # the SoC ("qcom,msm8937", "brcm,bcm2835"). Perry's derived value is
+        # byte-identical to the old constant, so committed fixtures do not move.
+        root = tree.get("/", {})
+        rc = root.get("compatible", [])
+        if isinstance(rc, str):
+            rc = [rc]
+        meta = {"source": os.path.abspath(args.source),
+                "device": rc[0].replace(",", "-") if rc else "unknown"}
+        if rc:
+            meta["soc"] = rc[-1]
+        if isinstance(root.get("model"), str):
+            meta["model"] = root["model"]
+
         uname = os.path.join(snap_dir, "uname.txt")
         if os.path.exists(uname):
             meta["uname"] = open(uname, encoding="utf-8", errors="replace").read().strip()
 
-        spec = build_spec(read_tree(dt_base), meta,
-                          redact=not args.keep_identifiers)
+        spec = build_spec(tree, meta, redact=not args.keep_identifiers)
         spec = overlay_snapshot(spec, snap_dir)
 
     if args.break_rail:
