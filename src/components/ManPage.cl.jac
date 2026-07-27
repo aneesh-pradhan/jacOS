@@ -330,10 +330,10 @@ def:pub ManPage -> JsxElement {
             <div className="man-sheet">
 
                 <div className="man-brand">
-                    <pre className="man-logo" aria-label="JacOS">{logo}</pre>
+                    <pre className="man-logo" aria-label="jac_OS">{logo}</pre>
                     <div className="man-brand-side">
                         <div className="man-brand-t">
-                            {"jacos@" + (status.device if status is not None else "…")}
+                            {"jac_OS@" + (status.device if status is not None else "…")}
                         </div>
                         <div className="man-brand-rule"></div>
                         <div className="man-brand-k">
@@ -349,15 +349,15 @@ def:pub ManPage -> JsxElement {
                 </div>
 
                 <header className="man-hdr">
-                    <span>JACOS(1)</span>
-                    <span>JacOS Reference Manual</span>
-                    <span>JACOS(1)</span>
+                    <span>jac_OS(1)</span>
+                    <span>jac_OS Reference Manual</span>
+                    <span>jac_OS(1)</span>
                 </header>
 
                 <section className="man-sec">
                     <h2>NAME</h2>
                     <div className="man-body">
-                        <b>jacos</b>{" — the Linux device tree as a first-class Jac graph"}
+                        <b>jac_OS</b>{" — the Linux device tree as a first-class Jac graph"}
                     </div>
                 </section>
 
@@ -540,7 +540,7 @@ def:pub ManPage -> JsxElement {
                 <footer className="man-ftr">
                     <span>motorola-perry</span>
                     <span>JacHacks SF 2026</span>
-                    <span>JACOS(1)</span>
+                    <span>jac_OS(1)</span>
                 </footer>
 
             </div>

@@ -36,3 +36,8 @@ base_route_app = "app"
 # resolution error was finally read. Off by default -- it prints a warning
 # banner at startup that is noise during a demo.
 debug = false
+
+# Browser tab / page <title>. Without this the title falls back to the mount
+# function name, which rendered as the unhelpful "app".
+[plugins.client.app_meta_data]
+title = "jac_OS"
