@@ -3,9 +3,13 @@
 Everything a fresh session needs to continue without re-deriving anything.
 Written 2026-07-26.
 
-**Start at §12** — the seventh session, which closed the two device-validation
-items §11 left open. Everything above it is background and findings; §11 is
-the punch list §12 works against.
+**Start at §13** — the unbound-device heuristic fix and the numbers it moved.
+§12 is the seventh session, which closed the two device-validation items §11
+left open; everything above that is background and findings.
+
+**Any health finding count printed before §13 is stale.** §5 says 16, §9/§11/
+§12 say 18. The current answer is 16 with a different composition, and the Pi
+is 1, not 3. §13 has the table.
 
 ---
 
@@ -797,8 +801,11 @@ that adds a third moving thing is taking that away.
 
 ### Two things to know before demoing it
 
-- **`health` reports 18 findings here, not the 16 in §5** — and *which number
-  you get depends on the machine*, which is the part that matters. The
+- **`health` reports 18 findings here, not the 16 in §5** — *(both counts are
+  superseded; see §13, which fixed two false positives and lands on 16 with a
+  different composition. The machine-dependence below is still true.)* — and
+  *which number you get depends on the machine*, which is the part that
+  matters. The
   `_clk_summary_map()` added to `src/hw.py` reads clock state from
   `fixtures/clk_summary.txt` or from `fixtures/perry-snapshot.tar.gz`. **That
   tarball is gitignored** (`fixtures/*.tar.gz`) and happens to be present in
@@ -930,8 +937,11 @@ are moot and item 4 (Pi validation) is the interesting one.
 - **The console demo path is browser-verified**: type `camera@10`, RUN →
   22-node walk, faults at hops 2/3/4/6, `ROOT CAUSE .../l23` disabled at
   1200 mV, dependency graph draws with the four-archetype legend.
+  **§13 changed this: the hot hops are now 2/3/4** (hop 6 was a false
+  positive). The root cause is unchanged. Re-rehearse the beat.
 - **This machine reports 18 health findings** (the gitignored
   `fixtures/perry-snapshot.tar.gz` is present) — claim 18, not 16.
+  **Superseded by §13: it is now 16**, and not §5's 16 either.
 - **Pi Zero captured over COM6** (commit `0a53fcf`):
   `fixtures/pizero-live.json`, 162 nodes from a BCM2835. `tools/dtb.py` no
   longer hardcodes the board name (read from root `compatible`; perry output
@@ -1027,7 +1037,7 @@ captured in §11 (commit `0a53fcf`) and this is a pure replay run.
 | nodes / edges | 162 / 247 | 465 / 732 |
 | device | `raspberrypi-model-zero-w` | `motorola-perry` |
 | regulators | 5 | 26 |
-| health findings | 3 | 18 |
+| health findings | 3 → **1** (§13) | 18 → **16** (§13) |
 
 ```
 ! /cam1_regulator      ::  rail cam1-reg is disabled
@@ -1040,7 +1050,9 @@ captured in §11 (commit `0a53fcf`) and this is a pure replay run.
 changes. That part is real and is worth saying out loud.
 
 **Health precision is not validated — 2 of the 3 findings are false
-positives**, and §4's stated defense does not cover them:
+positives**, and §4's stated defense does not cover them. *(Fixed in §13 —
+both are gone, on perry as well as the Pi. The diagnosis below is still the
+clearest statement of what was wrong.)*
 
 - `/chosen` is not a device; it holds bootargs. Pi firmware stamps it
   `compatible = "simple_bus"`, so `tools/dtb.py` classifies it `kind: "bus"`
@@ -1060,7 +1072,8 @@ instantiated" from "failed to probe" needs a second signal.
 and benign rather than a fault.
 
 **Recommended framing:** claim the walkers running unmodified on a second SoC;
-do not quote Pi findings counts.
+do not quote Pi findings counts. *(§13 lifts the second half — the Pi now
+reports a single finding and it is a true one, so the count is quotable.)*
 
 ### One cosmetic gotcha worth knowing on a projector
 
@@ -1072,12 +1085,102 @@ correctly.
 
 ### What is left
 
-1. **Tighten the unbound-device heuristic** so `/chosen` and non-probing nodes
-   stop reporting as faults. This is the only real code item and it is what
-   would let health be quoted cross-SoC.
+1. ~~**Tighten the unbound-device heuristic**~~ **Done — see §13.** It also
+   removed two false positives nobody had noticed on perry.
 2. The timed 4-minute rehearsal — still never measured, and moot unless a
    video is still wanted.
 3. `jac mcp`, jac-cloud fleet view, JacHammer deploy (§5) — all post-event.
 
 Separately, §9's note still stands: `src/.jac/` is a stale second build tree
 and can be deleted once someone confirms its DB is not the one being demoed.
+
+---
+
+## 13. The unbound-device heuristic, fixed — and the numbers it moved
+
+Written 2026-07-27. **Every health finding count printed before this section
+is stale.** §5 says 16, §9 and §11 and §12 say 18; the answer is now **16 with
+a different composition**, and the Pi's 3 is now 1. Read the table below
+rather than any earlier number.
+
+### What was actually wrong
+
+`_expects_driver()` in `src/hw.py` had three defects, and the first is the one
+that mattered:
+
+1. **`in_sysfs` short-circuited every rule below it.** The function returned
+   `in_sysfs == 1` before it ever reached the compatible-string filters, so a
+   node that is in sysfs but is pure topology or is claimed by an early
+   subsystem was reported as a failed probe. This survived six sessions
+   because on perry those nodes happen to have `in_sysfs == 0` and exited one
+   line earlier. It took a second SoC to expose it. **§4's claim that
+   `in_sysfs` carries the ground truth for never-instantiated nodes is
+   therefore wrong** — it is necessary, not sufficient.
+2. **Separator mismatch.** `_NO_DRIVER_EXPECTED` held `simple-bus`; Pi
+   firmware emits `simple_bus`. Compared raw, it never matched.
+3. **The empty-compatible rule only ran on the `in_sysfs == -1` path.** Driver
+   matching is by compatible string, so a node with none cannot be a *failed
+   probe* by construction — that holds on every path.
+
+The fix reorders the function so the by-construction rules run first and
+`in_sysfs` decides only what is left, and adds `_STRUCTURAL_PATHS` (DT
+metadata nodes: `/chosen`, `/aliases`, `/memory`, …, matched on base path),
+`_norm_compat()` (separator normalisation), and `_declared_not_probed()` (the
+`TIMER_OF_DECLARE` class — the ARM architected timer and the BCM2835 system
+timer both land here).
+
+### The numbers, verified on both boards and on real hardware
+
+| Check | Before | After |
+|---|---|---|
+| Pi Zero health (replay) | 3 | **1** — only the true `cam1_regulator` |
+| perry health (replay) | 18 | **16** = 12 disabled rails + 4 devices |
+| perry health (**live on the phone**) | 6 device findings | **4** |
+| touchscreen: healthy → unbind → rebind, on hardware | clean / 2-hop / clean | **unchanged** |
+| `camera@10` root cause | `l23` | **`l23`** |
+
+**perry's new 16 is not §5's old 16.** The composition differs — §5 described
+9 rails + 7 unbound devices; it is now 12 rails + 4 devices. Do not treat the
+matching total as evidence that nothing changed.
+
+**`camera@10` now lights hops 2/3/4, not §11's 2/3/4/6.** The dropped hop was
+`/soc@0/cci@1b0c000/i2c-bus@0`, which has an empty compatible — the CCI driver
+registers it as an i2c adapter and an adapter never has a driver bound in the
+probe sense. The console demo is arguably better for it: three power faults
+descending to the deepest rail, with no confusing "the i2c bus is also broken"
+hop in the middle. **Re-rehearse that beat before showing it.**
+
+Live and replay disagree on rail counts (14 live vs 16 replay, `l14` at
+1775 mV vs 1800). That is ordinary — live mode re-reads sysfs and those rails
+are genuinely powered at the moment. The *device* findings are identical in
+both modes, which is the part that proves the fix works on the live path too.
+
+### The four device findings that remain, and why they were kept
+
+Asked the live phone whether a driver even exists for each. **None is
+registered** — `ls /sys/bus/platform/drivers` has no match for `labibb`,
+`rpm-msg-ram`, `syscon`, `tcsr`, or `battery` — while all four exist as
+platform devices (`1937000.syscon`, `60000.sram`, `battery`,
+`200f000.spmi:pmic@3:labibb`). So the kernel instantiated the node and no
+driver in this build could ever bind.
+
+That splits them, and only one is actionable:
+
+| Node | Compatible | Verdict |
+|---|---|---|
+| `/soc@0/syscon@1937000` | `qcom,tcsr-msm8917`, `syscon` | provider — reached by phandle lookup, never binds |
+| `/soc@0/sram@60000` | `qcom,rpm-msg-ram` | provider — consumed by the RPM/SMD driver |
+| `/battery` | `simple-battery` | data-only binding, referenced by the charger |
+| `/soc@0/…/pmic@3/labibb` | `qcom,pmi8950-lab-ibb` | **genuine** — an upstream driver exists, this kernel lacks it |
+
+`labibb` is exactly the finding a porter wants ("enable
+`CONFIG_REGULATOR_QCOM_LABIBB`"), so **all four were deliberately left in**
+rather than suppressed by another compatible-string blocklist.
+
+The three providers need a signal the graph does not carry yet, and there is a
+graph-native one: **a provider is a node that other nodes point at by
+phandle.** `tools/dtb.py` already resolves phandles; it just does not emit an
+edge for generic references such as `monitored-battery` or `qcom,tcsr`. Adding
+that edge type turns "unbound providers are not faults" into a traversal rule
+instead of a blocklist, which fits the project's thesis better than any
+string-matching would. That is the next piece of work.

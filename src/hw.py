@@ -187,7 +187,46 @@ def _regulator_state(label: str) -> tuple[str, int]:
 # `simple-bus` containers are pure topology, nothing ever probes them.
 _NO_DRIVER_EXPECTED = {"simple-bus", "simple-mfd", "simple-pm-bus"}
 
+# Device tree metadata nodes. The spec defines these as description rather
+# than hardware, so nothing probes them whatever they happen to carry.
+#
+# `in_sysfs` alone does not filter them: Raspberry Pi firmware stamps /chosen
+# with `compatible = "simple_bus"` and the node does land in sysfs, so on a Pi
+# it reported as "NO DRIVER BOUND -- device did not probe". Match on the base
+# path so /memory@0 and friends are covered too.
+_STRUCTURAL_PATHS = {
+    "/", "", "/chosen", "/aliases", "/__symbols__", "/__overrides__",
+    "/memory", "/reserved-memory", "/thermal-zones", "/cpus",
+}
+
 _BUSES = ("platform", "i2c", "spi", "mmc", "usb", "spmi")
+
+
+def _norm_compat(c: str) -> str:
+    """Normalise a compatible string for comparison.
+
+    Vendors are inconsistent about the separator -- the DT binding is
+    `simple-bus`, but Pi firmware emits `simple_bus`. Comparing raw strings
+    silently misses the second form.
+    """
+    return c.strip().lower().replace("_", "-")
+
+
+def _is_structural_path(path: str) -> bool:
+    return path in _STRUCTURAL_PATHS or path.split("@")[0] in _STRUCTURAL_PATHS
+
+
+def _declared_not_probed(compatible: list) -> bool:
+    """Is this node claimed by a subsystem that bypasses the driver model?
+
+    Timers are set up through a `TIMER_OF_DECLARE` table during early boot,
+    well before the driver model exists. The node is real hardware and it does
+    appear in sysfs, but no platform driver ever binds to it, so "unbound" is
+    normal rather than a fault. True of the ARM architected timer on perry
+    (`arm,armv8-timer`) and the BCM2835 system timer on the Pi alike -- both
+    were reporting as faults before this.
+    """
+    return any(_norm_compat(c).endswith("-timer") for c in compatible)
 
 
 def _device_present(dt_path: str) -> bool:
@@ -208,18 +247,41 @@ def _device_present(dt_path: str) -> bool:
 
 def _expects_driver(path: str, compatible: list | None,
                     in_sysfs: int = -1) -> bool:
-    if path in ("/", ""):
+    """Could a driver ever have bound here, so that "unbound" means something?
+
+    Order matters. The checks that rule a node out *by construction* run first,
+    because they hold no matter what sysfs says. Only then does `in_sysfs`
+    decide, and it answers a narrower question than it looks like it does:
+    "did the kernel instantiate a device", not "should one have probed".
+
+    Getting that order wrong is the bug this function used to have. `in_sysfs`
+    short-circuited every rule below it, so a node that is in sysfs but is pure
+    topology (`/chosen`) or claimed by an early subsystem (`/timer`) was
+    reported as a failed probe. That went unnoticed because on perry those
+    nodes happen to have `in_sysfs == 0` and exited early -- until a second SoC
+    turned up where they do not.
+    """
+    if _is_structural_path(path):
         return False
+
+    compatible = compatible or []
+    # Drivers match on compatible strings. With none, nothing can match, so
+    # whatever this node is it cannot be a *failed probe*. Perry's
+    # /soc@0/cci@1b0c000/i2c-bus@0 is one: the CCI driver registers it as an
+    # i2c adapter, and an adapter never has a driver bound in this sense.
+    if not compatible:
+        return False
+    if any(_norm_compat(c) in _NO_DRIVER_EXPECTED for c in compatible):
+        return False
+    if _declared_not_probed(compatible):
+        return False
+
     # in_sysfs: 1 present, 0 absent, -1 unknown (fall back to the heuristic).
     if in_sysfs >= 0:
         return in_sysfs == 1
     if LIVE:
         return _device_present(path)
-    compatible = compatible or []
-    if not compatible:
-        # No compatible string means nothing can match a driver to it.
-        return False
-    return not any(c in _NO_DRIVER_EXPECTED for c in compatible)
+    return True
 
 
 def probe_health(path: str, kind: str, label: str = "",
