@@ -1183,4 +1183,68 @@ phandle.** `tools/dtb.py` already resolves phandles; it just does not emit an
 edge for generic references such as `monitored-battery` or `qcom,tcsr`. Adding
 that edge type turns "unbound providers are not faults" into a traversal rule
 instead of a blocklist, which fits the project's thesis better than any
-string-matching would. That is the next piece of work.
+string-matching would. That is the next piece of work. **Done — §14.**
+
+---
+
+## 14. The provider rule — perry health is now 13
+
+Written 2026-07-27, in a hurry before a commit deadline. **perry: 16 → 13**
+(12 disabled rails + `labibb`). `/battery`, `/soc@0/sram@60000` and
+`/soc@0/syscon@1937000` are gone; `labibb` correctly stays. Demo paths
+re-verified in replay: `touchscreen` clean, `camera@10` → hops 2/3/4,
+`ROOT CAUSE .../l23`.
+
+### How a provider is identified
+
+`dtc` assigns a phandle **only to nodes something actually references**, so
+carrying one is the tree's own record of "I am a reference target" — 168 of
+perry's 465 nodes. `tools/dtb.py` used to discard this as noise; it now emits
+it as `referenced` on every node, `topology.jac` carries it on `HwNode`, and
+`probe_health` treats unbound-but-referenced as a provider rather than a
+failed probe.
+
+**Resolving references the other way does not work, and was tried.** Scanning
+every cell for a value matching a known phandle produces constant phantom hits
+because phandles are small integers and device trees are full of small
+integers — `brcm,pins`, `drive-strength` and `bus-width` all generate them.
+Pi `/chosen` picked up two bogus referrers that way. Do not retry this.
+
+### Two caveats, both real
+
+- **`dtc -@` destroys the signal.** A tree built with symbol export gives every
+  *labelled* node a phandle whether or not anything points at it. The Pi Zero
+  has 143 of 162 referenced and **all 143 are exactly the `__symbols__`
+  entries**; perry exports none. `build_spec` therefore forces `referenced`
+  to False whenever `/__symbols__` is present and says so on stderr. Without
+  that guard this would have repeated the §13 bug precisely — a signal meaning
+  one thing on one board and something else on the next. **The Pi is
+  unaffected either way**: its only finding is a regulator, assessed on a
+  different branch.
+- **A provider that genuinely died is now silent.** A gpio controller that
+  failed to probe is referenced by half the tree and lands in this branch, and
+  that is exactly the fault a bring-up engineer wants. Its consumers still
+  report, so it surfaces as downstream symptoms rather than vanishing — but if
+  this ever misleads someone, the fix is to delete the `referenced` branch in
+  `probe_health` and take the noise back.
+
+### Not done — pick this up first
+
+**The live path was NOT re-validated on the phone for this change.** §13 was;
+this was not, for time. Before trusting it on hardware:
+
+```bash
+scp src/hw.py src/diagnose.jac src/topology.jac src/importer.jac perry:~/jacos/src/
+ssh perry 'cd ~/jacos && rm -f .jac/data/jacos.db* && ./scripts/jacos build fixtures/perry-live.json && ./scripts/jacos health'
+```
+
+Expect 4 device findings to drop to 1 (`labibb`). Rail counts differ live.
+
+**Adding a `has` field to `HwNode` drifts the persisted schema** — `jac` logs
+`SqliteMemory: schema drift ... best-effort load` per node and the graph is
+stale. Delete `.jac/data/<entry>.db*` and rebuild. The web console's
+`main.db` needs the same treatment before it is next demoed.
+
+`fixtures/perry-live.json`, `perry-live-fault.json` and `pizero-live.json`
+were patched in place with the new field rather than regenerated, so every
+other value is untouched — the diff is pure additions, one line per node.

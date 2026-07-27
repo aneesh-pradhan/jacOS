@@ -19,6 +19,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#address-cells": 1,
         "#size-cells": 1,
@@ -43,6 +44,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "act_led_activelow": "5gpios:8",
         "act_led_gpio": "5gpios:4",
@@ -127,6 +129,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "aliases": "/aliases",
         "alt0": "/soc/gpio@7e200000/alt0",
@@ -290,6 +293,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "aux": "/soc/aux@7e215000",
         "axiperf": "/soc/axiperf",
@@ -336,6 +340,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "compatible": "arm,arm1176-pmu"
       },
@@ -350,6 +355,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {},
       "in_sysfs": 0
     },
@@ -360,6 +366,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "reg": [
           515899392,
@@ -378,6 +385,7 @@
       ],
       "status": "disabled",
       "label": "",
+      "referenced": false,
       "props": {
         "#clock-cells": 0,
         "compatible": "fixed-clock",
@@ -394,6 +402,7 @@
       ],
       "status": "disabled",
       "label": "cam0-reg",
+      "referenced": false,
       "props": {
         "compatible": "regulator-fixed",
         "enable-active-high": true,
@@ -411,6 +420,7 @@
       ],
       "status": "disabled",
       "label": "",
+      "referenced": false,
       "props": {
         "#clock-cells": 0,
         "compatible": "fixed-clock",
@@ -427,6 +437,7 @@
       ],
       "status": "okay",
       "label": "cam1-reg",
+      "referenced": false,
       "props": {
         "compatible": "regulator-fixed",
         "enable-active-high": true,
@@ -453,6 +464,7 @@
       ],
       "status": "okay",
       "label": "cam-dummy-reg",
+      "referenced": false,
       "props": {
         "compatible": "regulator-fixed",
         "regulator-name": "cam-dummy-reg",
@@ -473,6 +485,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#address-cells": 1,
         "#size-cells": 1,
@@ -508,6 +521,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "boot-mode": 1,
         "partition": 0,
@@ -525,6 +539,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "compatible": "simple-framebuffer",
         "format": "a8r8g8b8",
@@ -548,6 +563,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#address-cells": 1,
         "#size-cells": 0,
@@ -566,6 +582,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#clock-cells": 0,
         "clock-frequency": 19200000,
@@ -583,6 +600,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#clock-cells": 0,
         "clock-frequency": 480000000,
@@ -598,6 +616,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#address-cells": 1,
         "#size-cells": 0
@@ -613,6 +632,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "compatible": "arm,arm1176jzf-s",
         "d-cache-line-size": 16,
@@ -635,6 +655,7 @@
       ],
       "status": "okay",
       "label": "3v3",
+      "referenced": false,
       "props": {
         "compatible": "regulator-fixed",
         "regulator-always-on": true,
@@ -657,6 +678,7 @@
       ],
       "status": "okay",
       "label": "5v0",
+      "referenced": false,
       "props": {
         "compatible": "regulator-fixed",
         "regulator-always-on": true,
@@ -679,6 +701,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "compatible": "gpio-leds"
       },
@@ -693,6 +716,7 @@
       "compatible": [],
       "status": "okay",
       "label": "ACT",
+      "referenced": false,
       "props": {
         "default-state": "off",
         "gpios": [
@@ -712,6 +736,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "device_type": "memory",
         "reg": [
@@ -730,6 +755,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#phy-cells": 0,
         "compatible": "usb-nop-xceiv"
@@ -745,6 +771,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#address-cells": 1,
         "#size-cells": 1,
@@ -761,6 +788,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "compatible": "shared-dma-pool",
         "linux,cma-default": true,
@@ -778,6 +806,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#address-cells": 1,
         "#size-cells": 1,
@@ -809,6 +838,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#clock-cells": 1,
         "clocks": [
@@ -834,6 +864,7 @@
       ],
       "status": "disabled",
       "label": "",
+      "referenced": false,
       "props": {
         "compatible": "brcm,bcm2835-axiperf",
         "firmware": 6,
@@ -856,6 +887,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#clock-cells": 1,
         "claim-clocks": [
@@ -899,6 +931,7 @@
       ],
       "status": "disabled",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,num-data-lanes": 2,
         "clock-names": [
@@ -941,6 +974,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {},
       "in_sysfs": 0
     },
@@ -953,6 +987,7 @@
       ],
       "status": "disabled",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,num-data-lanes": 2,
         "clock-names": [
@@ -995,6 +1030,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {},
       "in_sysfs": 0
     },
@@ -1007,6 +1043,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#dma-cells": 1,
         "brcm,dma-channel-mask": 32565,
@@ -1081,6 +1118,7 @@
       ],
       "status": "disabled",
       "label": "",
+      "referenced": false,
       "props": {
         "clock-names": [
           "core",
@@ -1110,6 +1148,7 @@
       ],
       "status": "disabled",
       "label": "",
+      "referenced": false,
       "props": {
         "#address-cells": 1,
         "#clock-cells": 1,
@@ -1158,6 +1197,7 @@
       ],
       "status": "disabled",
       "label": "",
+      "referenced": false,
       "props": {
         "#address-cells": 1,
         "#clock-cells": 1,
@@ -1206,6 +1246,7 @@
       ],
       "status": "disabled",
       "label": "",
+      "referenced": false,
       "props": {
         "compatible": "brcm,bcm2708-fb",
         "firmware": 6,
@@ -1223,6 +1264,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "compatible": [
           "raspberrypi,bcm2835-firmware",
@@ -1243,6 +1285,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#clock-cells": 1,
         "compatible": "raspberrypi,firmware-clocks"
@@ -1260,6 +1303,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "compatible": "raspberrypi,vcio"
       },
@@ -1276,6 +1320,7 @@
       ],
       "status": "disabled",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,firmware": 6,
         "compatible": "raspberrypi,rpi-firmware-kms",
@@ -1300,6 +1345,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#gpio-cells": 2,
         "#interrupt-cells": 2,
@@ -1390,6 +1436,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": [
@@ -1411,6 +1458,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": true,
         "brcm,pins": true
@@ -1424,6 +1472,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": 43,
@@ -1438,6 +1487,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 6,
         "brcm,pins": [
@@ -1480,6 +1530,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 6,
         "brcm,pins": [
@@ -1514,6 +1565,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 6,
         "brcm,pins": [
@@ -1546,6 +1598,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 6,
         "brcm,pins": [
@@ -1580,6 +1633,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 6,
         "brcm,pins": [
@@ -1612,6 +1666,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 6,
         "brcm,pins": [
@@ -1649,6 +1704,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 6,
         "brcm,pins": [
@@ -1683,6 +1739,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 6,
         "brcm,pins": [
@@ -1719,6 +1776,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 6,
         "brcm,pins": [
@@ -1753,6 +1811,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 7,
         "brcm,pins": [
@@ -1773,6 +1832,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 7,
         "brcm,pins": [
@@ -1801,6 +1861,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 7,
         "brcm,pins": [
@@ -1821,6 +1882,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": 4
@@ -1834,6 +1896,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": 42
@@ -1847,6 +1910,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": 44
@@ -1860,6 +1924,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": 5
@@ -1873,6 +1938,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": 43,
@@ -1887,6 +1953,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": 6
@@ -1900,6 +1967,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 1,
         "brcm,pins": 6
@@ -1913,6 +1981,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 7,
         "brcm,pins": [
@@ -1931,6 +2000,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": [
@@ -1947,6 +2017,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": [
@@ -1963,6 +2034,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": [
@@ -1979,6 +2051,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 5,
         "brcm,pins": [
@@ -1995,6 +2068,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": [
@@ -2011,6 +2085,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": [
@@ -2027,6 +2102,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 6,
         "brcm,pins": [
@@ -2043,6 +2119,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": [
@@ -2061,6 +2138,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 3,
         "brcm,pins": [
@@ -2081,6 +2159,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 2,
         "brcm,pins": [
@@ -2100,6 +2179,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": [
@@ -2118,6 +2198,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 6,
         "brcm,pins": [
@@ -2136,6 +2217,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": 12
@@ -2149,6 +2231,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 2,
         "brcm,pins": 18
@@ -2162,6 +2245,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": 40
@@ -2175,6 +2259,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": 13
@@ -2188,6 +2273,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 2,
         "brcm,pins": 19
@@ -2201,6 +2287,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": 41
@@ -2214,6 +2301,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": 45
@@ -2227,6 +2315,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": [
@@ -2247,6 +2336,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 7,
         "brcm,pins": [
@@ -2275,6 +2365,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": [
@@ -2294,6 +2385,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": [
@@ -2313,6 +2405,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 1,
         "brcm,pins": [
@@ -2329,6 +2422,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": [
@@ -2346,6 +2440,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 3,
         "brcm,pins": [
@@ -2366,6 +2461,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 3,
         "brcm,pins": [
@@ -2386,6 +2482,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 7,
         "brcm,pins": [
@@ -2402,6 +2499,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 7,
         "brcm,pins": [
@@ -2422,6 +2520,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 6,
         "brcm,pins": [
@@ -2438,6 +2537,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 4,
         "brcm,pins": [
@@ -2454,6 +2554,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 7,
         "brcm,pins": [
@@ -2474,6 +2575,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 6,
         "brcm,pins": [
@@ -2490,6 +2592,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 7,
         "brcm,pins": [
@@ -2514,6 +2617,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 2,
         "brcm,pins": [
@@ -2530,6 +2634,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 2,
         "brcm,pins": [
@@ -2546,6 +2651,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 2,
         "brcm,pins": [
@@ -2562,6 +2668,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 2,
         "brcm,pins": [
@@ -2578,6 +2685,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 2,
         "brcm,pins": [
@@ -2594,6 +2702,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 2,
         "brcm,pins": [
@@ -2610,6 +2719,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": 2,
         "brcm,pins": [
@@ -2634,6 +2744,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,function": true,
         "brcm,pins": true,
@@ -2650,6 +2761,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "compatible": "brcm,bcm2835-gpiomem",
         "reg": [
@@ -2670,6 +2782,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "compatible": "brcm,bcm2835-vc4",
         "raspberrypi,firmware": 6,
@@ -2688,6 +2801,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "clock-names": [
           "pixel",
@@ -2746,6 +2860,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "compatible": "brcm,bcm2835-hvs",
         "interrupts": [
@@ -2771,6 +2886,7 @@
       ],
       "status": "disabled",
       "label": "",
+      "referenced": false,
       "props": {
         "#address-cells": 1,
         "#size-cells": 0,
@@ -2793,6 +2909,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#address-cells": 1,
         "#size-cells": 0,
@@ -2807,6 +2924,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#address-cells": 1,
         "#size-cells": 0,
@@ -2823,6 +2941,7 @@
       ],
       "status": "disabled",
       "label": "",
+      "referenced": false,
       "props": {
         "#address-cells": 1,
         "#size-cells": 0,
@@ -2853,6 +2972,7 @@
       ],
       "status": "disabled",
       "label": "",
+      "referenced": false,
       "props": {
         "#address-cells": 1,
         "#size-cells": 0,
@@ -2885,6 +3005,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#address-cells": 1,
         "#size-cells": 0,
@@ -2917,6 +3038,7 @@
       ],
       "status": "disabled",
       "label": "",
+      "referenced": false,
       "props": {
         "#sound-dai-cells": 0,
         "clocks": [
@@ -2953,6 +3075,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#interrupt-cells": 2,
         "compatible": "brcm,bcm2835-armctrl-ic",
@@ -2973,6 +3096,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "compatible": "brcm,bcm2835-vchiq",
         "interrupts": [
@@ -2999,6 +3123,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#mbox-cells": 0,
         "compatible": "brcm,bcm2835-mbox",
@@ -3024,6 +3149,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,overclock-50": 0,
         "brcm,pio-limit": 1,
@@ -3065,6 +3191,7 @@
       ],
       "status": "disabled",
       "label": "",
+      "referenced": false,
       "props": {
         "brcm,overclock-50": 0,
         "bus-width": 4,
@@ -3105,6 +3232,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#address-cells": 1,
         "#size-cells": 0,
@@ -3149,6 +3277,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "compatible": "brcm,bcm4329-fmac",
         "reg": 1
@@ -3164,6 +3293,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#address-cells": 1,
         "#size-cells": 1,
@@ -3182,6 +3312,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "compatible": "raspberrypi,rpi-otp",
         "firmware": 6,
@@ -3204,6 +3335,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "compatible": "raspberrypi,rpi-otp",
         "firmware": 6,
@@ -3226,6 +3358,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "compatible": "brcm,bcm2835-pixelvalve0",
         "interrupts": [
@@ -3251,6 +3384,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "compatible": "brcm,bcm2835-pixelvalve1",
         "interrupts": [
@@ -3276,6 +3410,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "compatible": "brcm,bcm2835-pixelvalve2",
         "interrupts": [
@@ -3301,6 +3436,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#power-domain-cells": 1,
         "compatible": "raspberrypi,bcm2835-power",
@@ -3319,6 +3455,7 @@
       ],
       "status": "disabled",
       "label": "",
+      "referenced": false,
       "props": {
         "#pwm-cells": 3,
         "assigned-clock-rates": 50000000,
@@ -3348,6 +3485,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "compatible": "brcm,bcm2835-rng",
         "interrupts": [
@@ -3374,6 +3512,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "arm,primecell-periphid": 2363409,
         "clock-names": [
@@ -3419,6 +3558,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "compatible": "brcm,bcm43438-bt",
         "fallback-bd-address": true,
@@ -3442,6 +3582,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "clocks": [
           17,
@@ -3474,6 +3615,7 @@
       ],
       "status": "disabled",
       "label": "",
+      "referenced": false,
       "props": {
         "compatible": "brcm,bcm43438-bt",
         "fallback-bd-address": true,
@@ -3497,6 +3639,7 @@
       ],
       "status": "disabled",
       "label": "",
+      "referenced": false,
       "props": {
         "assigned-clock-rates": 125000000,
         "assigned-clocks": [
@@ -3532,6 +3675,7 @@
       "compatible": [],
       "status": "disabled",
       "label": "",
+      "referenced": false,
       "props": {
         "status": "disabled"
       },
@@ -3546,6 +3690,7 @@
       ],
       "status": "disabled",
       "label": "",
+      "referenced": false,
       "props": {
         "#address-cells": 1,
         "#size-cells": 0,
@@ -3598,6 +3743,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#address-cells": 1,
         "#size-cells": 0,
@@ -3616,6 +3762,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#address-cells": 1,
         "#size-cells": 0,
@@ -3634,6 +3781,7 @@
       ],
       "status": "disabled",
       "label": "",
+      "referenced": false,
       "props": {
         "#address-cells": 1,
         "#size-cells": 0,
@@ -3663,6 +3811,7 @@
       ],
       "status": "disabled",
       "label": "",
+      "referenced": false,
       "props": {
         "#address-cells": 1,
         "#size-cells": 0,
@@ -3692,6 +3841,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#thermal-sensor-cells": 0,
         "clocks": [
@@ -3718,6 +3868,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "clock-frequency": 1000000,
         "compatible": "brcm,bcm2835-system-timer",
@@ -3749,6 +3900,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "compatible": "brcm,bcm2835-txp",
         "interrupts": [
@@ -3774,6 +3926,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#address-cells": 1,
         "#size-cells": 0,
@@ -3829,6 +3982,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "clocks": [
           20,
@@ -3862,6 +4016,7 @@
       ],
       "status": "disabled",
       "label": "",
+      "referenced": false,
       "props": {
         "clocks": [
           20,
@@ -3894,6 +4049,7 @@
       ],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "#power-domain-cells": 1,
         "#reset-cells": 1,
@@ -3940,6 +4096,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "linux,revision": 9437377,
         "linux,serial": [
@@ -3956,6 +4113,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {},
       "in_sysfs": 0
     },
@@ -3966,6 +4124,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "coefficients": [
           4294966758,
@@ -3984,6 +4143,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {},
       "in_sysfs": 0
     },
@@ -3994,6 +4154,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {},
       "in_sysfs": 0
     },
@@ -4004,6 +4165,7 @@
       "compatible": [],
       "status": "okay",
       "label": "",
+      "referenced": false,
       "props": {
         "hysteresis": 0,
         "temperature": 110000,

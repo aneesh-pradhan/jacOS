@@ -38,6 +38,7 @@ def make_node(rec: dict) -> HwNode {
     n.reg_state = rec.get("reg_state", "");
     n.microvolts = rec.get("microvolts", 0);
     n.in_sysfs = rec.get("in_sysfs", -1);
+    n.referenced = rec.get("referenced", False);
     return n;
 }
 

@@ -288,7 +288,7 @@ def probe_health(path: str, kind: str, label: str = "",
                  driver: str = "", bound: bool = False,
                  reg_state: str = "", microvolts: int = 0,
                  compatible: list | None = None,
-                 in_sysfs: int = -1) -> dict:
+                 in_sysfs: int = -1, referenced: bool = False) -> dict:
     """Assess one node. Returns {healthy, state, detail}.
 
     In live mode the recorded values are treated as hints and re-read from
@@ -319,6 +319,23 @@ def probe_health(path: str, kind: str, label: str = "",
             live_drv = _find_driver(path)
             driver, bound = live_drv, bool(live_drv)
         healthy = bool(bound and driver)
+        if not healthy and referenced:
+            # Something in the tree points at this node, so it is a provider
+            # being consumed by phandle rather than a device that failed to
+            # probe on its own. perry's /battery (simple-battery, read by the
+            # fuel gauge), /soc@0/sram@60000 (qcom,rpm-msg-ram) and
+            # /soc@0/syscon@1937000 are all this shape, and the phone confirms
+            # no driver is registered for any of them.
+            #
+            # CAVEAT, and it is a real one: a provider that genuinely died --
+            # a gpio controller that failed to probe -- is referenced by half
+            # the tree and lands here too, so this can mask exactly the fault
+            # a bring-up engineer most wants. Flip this branch off to get the
+            # loud behaviour back. Consumers of a dead provider still report,
+            # so the fault surfaces as its downstream symptoms rather than
+            # disappearing outright.
+            return {"healthy": True, "state": "provider",
+                    "detail": "no driver bound -- referenced as a provider"}
         detail = (f"driver '{driver}' bound" if healthy
                   else "NO DRIVER BOUND -- device did not probe")
         return {"healthy": healthy, "state": "bound" if healthy else "unbound",

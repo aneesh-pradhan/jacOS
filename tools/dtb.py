@@ -194,6 +194,13 @@ def build_spec(tree: dict[str, dict], meta: dict, redact: bool = True) -> dict:
             if isinstance(v, int):
                 by_phandle[v] = path
 
+    # See the `referenced` comment below: a tree carrying /__symbols__ was
+    # built with `dtc -@`, which makes phandle presence meaningless.
+    symbols_exported = "/__symbols__" in tree
+    if symbols_exported:
+        print("[jacos] note: tree exports __symbols__ (dtc -@); phandle "
+              "presence is not a usable provider signal here", file=sys.stderr)
+
     nodes, edges = [], []
     unresolved: list[tuple[str, str, int]] = []
     redacted = 0
@@ -224,6 +231,31 @@ def build_spec(tree: dict[str, dict], meta: dict, redact: bool = True) -> dict:
         if not label and kind == "regulator":
             label = leaf.split("@")[0]
 
+        # Is anything in the tree pointing at this node?
+        #
+        # dtc assigns a phandle only to nodes that are actually referenced, so
+        # carrying the property is the tree's own bookkeeping for "I am a
+        # reference target" -- 168 of perry's 465 nodes. That distinguishes a
+        # provider consumed by phandle (a syscon, an SRAM region, a
+        # `simple-battery` description) from a leaf device that was supposed to
+        # probe and did not.
+        #
+        # Deriving this by resolving references the other way -- scanning every
+        # cell for a value that matches a known phandle -- was tried and is
+        # unusable: phandles are small integers and device trees are full of
+        # small integers, so `brcm,pins`, `drive-strength` and `bus-width` all
+        # produce phantom references. Reading dtc's own answer is exact.
+        # ...but only when the tree was not built with `dtc -@`. Symbol export
+        # (for overlays) assigns a phandle to every *labelled* node whether or
+        # not anything points at it, which dilutes the signal to noise: on the
+        # Pi Zero 143 of 162 nodes carry one and all 143 are exactly the
+        # __symbols__ entries, versus 168 of 465 on perry, which exports none.
+        # Trusting it there would repeat the very bug this replaced -- a signal
+        # that means one thing on one board and something else on the next.
+        referenced = (not symbols_exported) and any(
+            isinstance(props.get(k), int)
+            for k in ("phandle", "linux,phandle"))
+
         nodes.append({
             "path": path,
             "name": leaf,
@@ -231,6 +263,7 @@ def build_spec(tree: dict[str, dict], meta: dict, redact: bool = True) -> dict:
             "compatible": compat if isinstance(compat, list) else [],
             "status": status if isinstance(status, str) else "okay",
             "label": label if isinstance(label, str) else "",
+            "referenced": referenced,
             # Drop phandle noise and anything unserialisable from the payload.
             "props": payload,
         })

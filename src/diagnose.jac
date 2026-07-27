@@ -44,14 +44,14 @@ walker Diagnose {
         if not self.arrive(here) { return; }
         self.record(here, hw.probe_health(
             here.path, "device", here.label, here.driver, here.bound, "", 0,
-            here.compatible, here.in_sysfs));
+            here.compatible, here.in_sysfs, here.referenced));
     }
 
     can check_bus with Bus entry {
         if not self.arrive(here) { return; }
         self.record(here, hw.probe_health(
             here.path, "bus", here.label, here.driver, here.bound, "", 0,
-            here.compatible, here.in_sysfs));
+            here.compatible, here.in_sysfs, here.referenced));
     }
 
     can check_clock with Clock entry {
@@ -164,7 +164,8 @@ walker Survey {
     can look with HwNode entry {
         h = hw.probe_health(here.path, here.kind, here.label,
                             here.driver, here.bound, here.reg_state,
-                            here.microvolts, here.compatible, here.in_sysfs);
+                            here.microvolts, here.compatible, here.in_sysfs,
+                            here.referenced);
         here.healthy = h["healthy"];
         here.state = h["state"];
         here.detail = h["detail"];
@@ -195,7 +196,7 @@ walker Probe {
         }
         h = hw.probe_health(here.path, here.kind, here.label,
                             here.driver, here.bound, here.reg_state, here.microvolts,
-                            here.compatible, here.in_sysfs);
+                            here.compatible, here.in_sysfs, here.referenced);
         here.healthy = h["healthy"];
         here.state = h["state"];
         here.detail = h["detail"];

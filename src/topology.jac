@@ -25,6 +25,12 @@ node HwNode {
     # Did the kernel instantiate a device for this node at all? 1 yes, 0 no,
     # -1 unknown. Distinguishes a failed probe from a pure description node.
     has in_sysfs: int = -1;
+    # Does anything in the tree point at this node by phandle? A node other
+    # nodes reference is a provider being consumed (a syscon, an SRAM region,
+    # a battery description); one nobody references was meant to probe on its
+    # own. See tools/dtb.py for why this is read from the tree rather than
+    # derived by resolving references backwards.
+    has referenced: bool = False;
 
     # assessment, written by walkers on arrival
     has healthy: bool = True;
