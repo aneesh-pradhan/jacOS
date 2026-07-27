@@ -61,13 +61,44 @@
   z-index: 2;
 }
 
+/* Vignette. Sits above the sheet but below nothing else, and is inert to the
+ * mouse -- it exists to pull the eye to the middle of a projected image,
+ * where the graph is. */
+.man::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 45%, transparent 45%, rgba(0, 0, 0, 0.55) 100%);
+  z-index: 1;
+}
+
 .man-sheet {
+  position: relative;
+  z-index: 3;
   max-width: 1080px;
   margin: 0 auto;
   padding: 1.75rem 2rem 1.25rem;
-  background: var(--paper);
+  background:
+    linear-gradient(180deg, #12151200 0%, #0d0f0d 100%),
+    var(--paper);
   border: 1px solid var(--rule);
-  box-shadow: 0 0 0 1px #000, 0 24px 60px -20px #000;
+  box-shadow:
+    0 0 0 1px #000,
+    0 0 90px -30px rgba(224, 163, 62, 0.18),
+    0 24px 60px -20px #000;
+}
+
+/* Hairline of phosphor along the top edge of the sheet. */
+.man-sheet::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  right: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--amber), transparent);
+  opacity: 0.55;
 }
 
 /* --- running header / footer ------------------------------------------- */
@@ -108,11 +139,23 @@
 .man-sec { margin-bottom: 1.5rem; }
 
 .man-sec h2 {
-  margin: 0 0 0.35rem;
+  display: flex;
+  align-items: center;
+  gap: 1.25ch;
+  margin: 0 0 0.45rem;
   font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.13em;
+  letter-spacing: 0.18em;
   color: var(--amber);
+}
+
+/* Rule trailing off to the right of every section heading -- the thing that
+ * makes a stack of divs read as a typeset manual page. */
+.man-sec h2::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--rule), transparent);
 }
 
 /* Classic man indent. */
@@ -201,25 +244,44 @@
 }
 
 .stat {
+  position: relative;
   display: flex;
   flex-direction: column;
-  min-width: 11ch;
-  padding: 0.4rem 1.1ch;
+  min-width: 12ch;
+  padding: 0.5rem 1.2ch 0.45rem;
   border: 1px solid var(--rule);
-  background: #0b0d0b;
+  background: linear-gradient(180deg, #121512 0%, #0a0c0a 100%);
+  overflow: hidden;
+}
+
+/* Amber tick in the corner of each tile -- reads as an instrument panel
+ * rather than a set of divs. */
+.stat::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--amber), transparent 70%);
+  opacity: 0.5;
 }
 
 .stat-n {
   color: var(--amber);
-  font-size: 20px;
+  font-size: 26px;
   font-weight: 700;
-  line-height: 1.15;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 18px rgba(224, 163, 62, 0.35);
+  font-variant-numeric: tabular-nums;
 }
 
 .stat-l {
+  margin-top: 0.15rem;
   color: var(--dim);
-  font-size: 11px;
-  letter-spacing: 0.1em;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -236,17 +298,26 @@
   display: flex;
   align-items: baseline;
   gap: 1ch;
-  padding: 0.05rem 0.75ch;
+  padding: 0.08rem 0.75ch;
   cursor: pointer;
   white-space: nowrap;
+  border-left: 2px solid transparent;
+  transition: background 80ms linear, border-color 80ms linear;
 }
 
-.tr:hover { background: #191d19; }
+.tr:nth-child(even) { background: rgba(255, 255, 255, 0.012); }
+
+.tr:hover {
+  background: #191d19;
+  border-left-color: var(--dim);
+}
 
 .tr-on {
   background: #21281f;
-  box-shadow: inset 2px 0 0 var(--amber);
+  border-left-color: var(--amber);
 }
+
+.tr-bad { border-left-color: rgba(226, 96, 74, 0.45); }
 
 .tr-k {
   flex: 0 0 3ch;
@@ -289,13 +360,33 @@
   text-transform: uppercase;
 }
 
+/* Depth columns. Barely there -- a rail for the eye, not a table. */
+.dg-band { fill: #ffffff; opacity: 0.014; }
+.dg-band-alt { opacity: 0.032; }
+
 /* Edges. One colour per archetype -- the legend below the drawing is the key
  * to these four and nothing else. */
-.dg-e { fill: none; stroke-width: 1.4; opacity: 0.85; }
+.dg-e { fill: none; stroke-width: 1.4; opacity: 0.8; }
 .dg-e-supplied_by { stroke: var(--e-supply); }
 .dg-e-clocked_by { stroke: var(--e-clock); }
 .dg-e-reset_by { stroke: var(--e-reset); }
 .dg-e-parent_bus { stroke: var(--e-bus); stroke-dasharray: 3 3; }
+
+/* An edge pointing at something unhealthy. This is the only animation in the
+ * drawing, so the fault chain is the one thing that moves and the eye lands
+ * on it without being told where to look. */
+.dg-e-hot {
+  stroke: var(--bad);
+  stroke-width: 2.2;
+  opacity: 1;
+  stroke-dasharray: 7 5;
+  animation: dg-flow 0.9s linear infinite;
+  filter: drop-shadow(0 0 4px rgba(226, 96, 74, 0.55));
+}
+
+@keyframes dg-flow {
+  to { stroke-dashoffset: -12; }
+}
 
 .dg-tip { fill: var(--e-bus); }
 
@@ -305,9 +396,19 @@
   fill: #151915;
   stroke: var(--rule);
   stroke-width: 1;
+  transition: stroke 90ms linear, fill 90ms linear;
 }
 
-.gb:hover .gb-r { stroke: var(--amber); }
+/* Kind stripe down the left edge, colour-matched to the edge archetype that
+ * leads to this kind of block. Carries type at a glance from ten feet. */
+.gb-tab { fill: var(--rule); }
+.gb-regulator .gb-tab { fill: var(--e-supply); }
+.gb-clock .gb-tab { fill: var(--e-clock); }
+.gb-irq_controller .gb-tab { fill: var(--e-reset); }
+.gb-bus .gb-tab { fill: #8fa08b; }
+.gb-bad .gb-tab { fill: var(--bad); }
+
+.gb:hover .gb-r { stroke: var(--amber); fill: #1d221c; }
 
 .gb-t {
   fill: var(--fg);
@@ -343,6 +444,28 @@
   stroke: var(--bad);
   stroke-width: 2;
   fill: #2a0f0b;
+}
+
+.gb-rc .gb-t { fill: #ffd9cf; }
+
+/* Expanding ring around the root cause. Together with the hot edges this is
+ * the whole visual argument: the walk moved along the red chain and stopped
+ * here. */
+.gb-halo {
+  fill: none;
+  stroke: var(--bad);
+  stroke-width: 1.5;
+  /* Without these the scale() below is taken about the SVG origin, so the
+     ring flies off to the top-left instead of breathing in place. */
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: gb-halo 1.8s ease-out infinite;
+}
+
+@keyframes gb-halo {
+  0% { opacity: 0.85; transform: scale(1); }
+  70% { opacity: 0; }
+  100% { opacity: 0; transform: scale(1.045); }
 }
 
 .gb-pulse {
@@ -408,22 +531,49 @@
 .hop-bad span:nth-child(2) { color: var(--bad); }
 
 .man-rc {
+  position: relative;
   margin-top: 0.75rem;
-  padding: 0.6rem 1.25ch;
+  padding: 0.7rem 1.5ch 0.75rem;
   border: 1px solid var(--bad);
-  background: #1a0f0d;
-  box-shadow: 0 0 0 1px #2a0f0b, 0 0 28px -8px var(--bad);
+  border-left-width: 3px;
+  background: linear-gradient(100deg, #240f0c 0%, #160c0a 60%);
+  box-shadow: 0 0 0 1px #2a0f0b, 0 0 34px -8px var(--bad);
+  overflow: hidden;
+}
+
+/* Slow sweep across the root-cause panel. This is the punchline of the whole
+ * demo, so it gets to look like something arrived. */
+.man-rc::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 40%, rgba(226, 96, 74, 0.13) 50%, transparent 60%);
+  transform: translateX(-100%);
+  animation: rc-sweep 3.4s ease-in-out infinite;
+}
+
+@keyframes rc-sweep {
+  0%, 55% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 
 .man-rc-h {
   color: var(--bad);
   font-weight: 700;
-  letter-spacing: 0.14em;
-  font-size: 12px;
+  letter-spacing: 0.22em;
+  font-size: 11.5px;
 }
 
-.man-rc-p { color: #f0ece0; font-weight: 700; font-size: 16px; }
-.man-rc-d { color: var(--dim); }
+.man-rc-p {
+  color: #fff3ee;
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  text-shadow: 0 0 20px rgba(226, 96, 74, 0.4);
+}
+
+.man-rc-d { color: #b08c84; }
 
 @media (max-width: 640px) {
   .man-sheet { padding: 1.25rem 1rem; }

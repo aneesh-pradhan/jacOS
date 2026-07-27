@@ -769,9 +769,27 @@ dashed grey `parent_bus` — with a legend, because "these are different kinds o
 relationship" is the entire claim. Clicking any block re-runs the walk from it.
 
 Verified for touchscreen: 19 boxes, 32 edges, six depth columns, contained in
-its own horizontal scroller so the page never scrolls sideways. Verified for a
-fault (`regulator-cam-vana`): red-stroked root-cause box with a pulsing marker
-and the red ROOT CAUSE panel below.
+its own horizontal scroller so the page never scrolls sideways.
+
+**Use `camera@10` for the console, not `touchscreen`.** The touchscreen is
+healthy, so the browser demo ends on "no faults found" — true, and flat. The
+rear camera on this phone is genuinely dead and needs no injection at all:
+
+```
+/soc@0/cci@1b0c000/i2c-bus@0/camera@10  <-  cam_vana_2v8, cam_vio_1v8, l23
+```
+
+All three of its supplies are disabled, so the walk lights four hot edges
+across 22 nodes and ranks **`l23`** — the PMIC rail — above the two local
+regulators, which is exactly the class-then-depth heuristic in
+`Diagnose.root_cause()` doing its job on real data. It is the strongest thing
+the console can show, and unlike the terminal demo's `unbind` it invites no
+awkward question about what was staged.
+
+Motion is spent deliberately and only twice: edges pointing at an unhealthy
+node animate, and the root cause carries an expanding halo. Everything else is
+still, so on a projector the eye goes straight down the fault chain. Anything
+that adds a third moving thing is taking that away.
 
 ### Two things to know before demoing it
 

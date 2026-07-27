@@ -96,7 +96,14 @@ def:pub GraphBox(
 
     return <g className={cls} onClick={handle}>
         <title>{blk.path + ("  ·  " + blk.detail if blk.detail else "")}</title>
+        {#* Halo sits behind the box and only exists on the root cause, so the
+            one block the whole walk was looking for is the one thing on the
+            canvas that moves. *#}
+        {if blk.is_root_cause {
+            <rect className="gb-halo" x={x - 5} y={y - 5} width={w + 10} height={h + 10} rx={4}/>
+        }}
         <rect className="gb-r" x={x} y={y} width={w} height={h} rx={2}/>
+        <rect className="gb-tab" x={x} y={y} width={3} height={h}/>
         <text className="gb-t" x={x + 10} y={y + 14}>
             {caption[0:26] if len(caption) > 26 else caption}
         </text>
@@ -159,6 +166,18 @@ def:pub DepGraph(
     W = PADX * 2 + maxdepth * COLW + BOXW;
     H = PADY + (maxrow + 1) * ROWH;
 
+    # An edge is "hot" when the thing it points at assessed unhealthy, which
+    # makes the chain from the symptom down to the root cause the only moving
+    # thing in the picture. Everything else stays still: on a projector,
+    # motion is the strongest pointer there is, and spending it on decoration
+    # wastes it.
+    sick: dict[str, bool] = {};
+    for n in nodes {
+        if not n.healthy {
+            sick[n.path] = True;
+        }
+    }
+
     return <div className="dg-wrap">
         <svg className="dg" width={W} height={H} viewBox={"0 0 " + str(W) + " " + str(H)}>
             <defs>
@@ -167,6 +186,21 @@ def:pub DepGraph(
                     <path className="dg-tip" d="M0,0 L7,3 L0,6 Z"/>
                 </marker>
             </defs>
+
+            {#* Column bands, drawn first: they give the eye a rail to follow
+                left-to-right and make "how many hops down" readable without
+                counting boxes. *#}
+            {for (i, d) in enumerate(cols) {
+                <rect
+                    key={"b" + str(i)}
+                    className={"dg-band" + (" dg-band-alt" if i % 2 == 1 else "")}
+                    x={PADX + d * COLW - 9}
+                    y={26}
+                    width={BOXW + 18}
+                    height={H - 30}
+                    rx={3}
+                />
+            }}
 
             {for (i, d) in enumerate(cols) {
                 <text key={"c" + str(i)} className="dg-col" x={PADX + d * COLW} y={20}>
@@ -182,7 +216,8 @@ def:pub DepGraph(
             {for (i, e) in enumerate(edges) {
                 <path
                     key={"e" + str(i)}
-                    className={"dg-e dg-e-" + e.kind}
+                    className={"dg-e dg-e-" + e.kind
+                               + (" dg-e-hot" if e.dst in sick else "")}
                     markerEnd="url(#dg-tip)"
                     d={"M " + str(gx.get(e.src, 0) + BOXW) + "," + str(gy.get(e.src, 0) + BOXH // 2)
                        + " C " + str(gx.get(e.src, 0) + BOXW + BEND) + "," + str(gy.get(e.src, 0) + BOXH // 2)
