@@ -3,6 +3,10 @@
 Everything a fresh session needs to continue without re-deriving anything.
 Written 2026-07-26.
 
+**Start at §11** — the wrap-up state from the sixth session, written just
+before a laptop reboot. Everything above it is background and findings;
+§11 is the punch list.
+
 ---
 
 ## 1. What this is and why it looks like this
@@ -900,3 +904,65 @@ One process rule that matters more with several agents than with one:
 **`git commit -F <file>`, never `-m`.** PowerShell word-splits a `-m` message
 containing double quotes, and the resulting commit log is the one artifact a
 later session cannot repair.
+
+---
+
+## 11. Sixth session — submission push, jac_OS rebrand, wrap before reboot
+
+Written 2026-07-26 ~6:30 PM, wrapping because the laptop needs a restart
+(suspected cause of the phone USB-network failure below). Devpost hard close
+is 7:15 PM tonight; if you are reading this after the event, items 1-2 below
+are moot and item 4 (Pi validation) is the interesting one.
+
+### Done this session
+
+- **Devpost copy**: `docs/DEVPOST.md` (commit `a5c9041`) is ready-to-paste —
+  title, tagline, description, challenges, built-with, checklist, and a 1:30
+  video shot list. The human was pasting it into Devpost at ~6:15 PM.
+  **Live language stat: 50.2% Jac** (69,403 bytes) — §9's "51.8%" is stale
+  because CSS grew. Repo confirmed public. `jaseci-labs/jac` starred.
+- **Web console rebranded jac_OS** (commit `df2584c`) and verified in a real
+  browser: tab title (was literally "app" — nothing had ever set
+  `[plugins.client.app_meta_data] title`), header/footer `JAC_OS(1)`, NAME
+  line. Deliberately NOT changed: the SYNOPSIS (`jacos build|...` is the real
+  executable) and the ASCII banner (redrawing box glyphs unrehearsed is how
+  the page breaks on a projector).
+- **The console demo path is browser-verified**: type `camera@10`, RUN →
+  22-node walk, faults at hops 2/3/4/6, `ROOT CAUSE .../l23` disabled at
+  1200 mV, dependency graph draws with the four-archetype legend.
+- **This machine reports 18 health findings** (the gitignored
+  `fixtures/perry-snapshot.tar.gz` is present) — claim 18, not 16.
+- **Pi Zero captured over COM6** (commit `0a53fcf`):
+  `fixtures/pizero-live.json`, 162 nodes from a BCM2835. `tools/dtb.py` no
+  longer hardcodes the board name (read from root `compatible`; perry output
+  byte-identical). Graph build verified — it announces
+  `raspberrypi-model-zero-w` — but the health/topology pass was interrupted.
+
+### Known console behaviors (verified, don't rediscover)
+
+- The dev server is single-threaded and blocks in `recv` on an idle browser
+  keep-alive socket: a SECOND client (curl, another tab) can starve ~90 s.
+  One tab on 8100, nothing else polling it. Browser-driven use is fast.
+- First `DiagnoseNode` after boot once measured 143 s under contention with
+  the page's own boot requests; a clean re-time was never completed. Verify
+  the latency once before doing it live.
+- Do not click the `build` RUN button on stage (~75 s, blocks everything).
+
+### Punch list after the reboot, in order
+
+1. **Devpost**: confirm the submission saved; the demo video is the last
+   checklist item and needs a human (shot list in DEVPOST.md §6).
+2. **Restart the web console**: check nothing squats port 8100, then
+   `.demovenv/Scripts/jac.exe start src/main.jac --port 8100`. The graph is
+   resident, so Status answers instantly — no rebuild.
+3. **Phone validation — never completed this session.** The Moto E4 boots
+   and its USB gadget enumerates (Windows shows "UsbNcm Host Device"), but
+   the host stuck at APIPA `169.254.x` — no DHCP lease from the phone, so
+   `172.16.42.1` unreachable. The reboot is the first thing to try; if DHCP
+   still fails, assign `172.16.42.2/24` on that adapter from an elevated
+   shell. Then run the §7 resume command (must report no faults) and one
+   unbind → diagnose → rebind → diagnose round trip. Leave the phone healthy.
+4. **Finish the Pi validation** (optional, post-event ok): run build+health
+   against `fixtures/pizero-live.json` and record the numbers. Only then
+   claim cross-SoC out loud.
+5. The timed 4-minute rehearsal — still never measured.
