@@ -15,6 +15,18 @@ import from webapi {
 }
 
 cl {
+    # App-wide stylesheet, imported explicitly rather than paired as a
+    # `ManPage.style.css` annex next to the component. The annex route is
+    # documented and the compiler does emit `import "./ManPage.css"` for it,
+    # but it never copies the file into the build tree Vite actually reads
+    # (`.jac/client/compiled/components/`), so the build dies on
+    # `Could not resolve "./ManPage.css"`. Naming the source `ManPage.css`
+    # instead -- which an earlier session tried -- suppresses the import
+    # entirely and ships an unstyled page that looks like a clean build.
+    # `@jac-client/assets` is aliased to the compiled assets directory, so
+    # this path resolves without depending on annex pairing at all.
+    import "@jac-client/assets/console.css";
+
     import from .components.ManPage { ManPage }
 
     def:pub app -> JsxElement {

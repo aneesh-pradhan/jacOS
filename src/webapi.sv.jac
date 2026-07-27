@@ -51,6 +51,37 @@ obj Hop {
         faulty: bool;
 }
 
+"""One node of the dependency subgraph, positioned for drawing.
+
+`depth` is hops from the symptom, which is what the renderer lays out on its
+long axis -- so the picture is the traversal, read left to right.
+"""
+obj GraphNode {
+    has path: str,
+        name: str,
+        kind: str,
+        label: str,
+        state: str,
+        detail: str,
+        healthy: bool,
+        depth: int,
+        is_target: bool,
+        is_root_cause: bool;
+}
+
+"""One typed dependency edge, as drawn.
+
+`kind` is the edge archetype -- `supplied_by`, `clocked_by`, `reset_by`,
+`parent_bus` -- because the whole point of the picture is that these are
+different relationships, not undifferentiated lines.
+"""
+obj GraphEdge {
+    has src: str,
+        dst: str,
+        kind: str,
+        label: str;
+}
+
 """The result of localising a fault."""
 obj DiagnosisView {
     has symptom: str,
@@ -60,7 +91,9 @@ obj DiagnosisView {
         faults: list[Hop],
         root_cause_path: str,
         root_cause_detail: str,
-        found: bool;
+        found: bool,
+        nodes: list[GraphNode] = [],
+        edges: list[GraphEdge] = [];
 }
 
 """Whole-machine summary for the console header."""
@@ -72,6 +105,33 @@ obj StatusView {
         spec: str,
         loaded: bool;
 }
+
+
+# --- resident-graph bookkeeping ---------------------------------------------
+
+"""What is currently imported, recorded so nobody has to re-import to find out.
+
+`BuildGraph` purges and reinserts 465 nodes and 732 edges against the persisted
+store, which costs over a minute here -- and the dev server handles one request
+at a time, so a rebuild on page load stalls every other fetch behind it until
+the browser gives up and the accept backlog fills with half-open sockets. This
+node is the cheap answer to "is the tree already loaded", so the console can ask
+before it acts.
+"""
+node GraphMeta {
+    has device: str = "",
+        nodes: int = 0,
+        edges: int = 0,
+        spec: str = "";
+}
+
+"""root -> the single `GraphMeta` record.
+
+Deliberately *not* a `Registry` edge: `BuildGraph`'s purge sweeps everything it
+finds along `Registry`, and the bookkeeping has to outlive the graph it
+describes long enough to be rewritten.
+"""
+edge MetaOf {}
 
 
 # --- helpers ----------------------------------------------------------------
@@ -106,6 +166,84 @@ def _view(n: HwNode) -> NodeView {
     );
 }
 
+"""Collect the dependency subgraph under a node, breadth-first.
+
+Follows exactly the four edge types `Diagnose.descend` follows, in the same
+order, so the drawing and the walk cannot show different pictures. This is
+projection, not diagnosis: it reads the assessment `Diagnose` already wrote onto
+each node and never decides anything about health itself.
+
+Breadth-first rather than the walker's depth-first arrival order because
+`depth` here means "hops from the symptom", which is a layout coordinate. The
+trail stays the record of what the walker actually did.
+"""
+def _subgraph(start: HwNode, rc_path: str, limit: int) -> dict {
+    order: list[HwNode] = [start];
+    depth: dict[str, int] = {start.path: 0};
+    seen: dict[str, bool] = {start.path: True};
+    edges: list[GraphEdge] = [];
+
+    i = 0;
+    while i < len(order) {
+        cur = order[i] as HwNode;
+        i += 1;
+        if len(order) >= limit {
+            break;
+        }
+        d = depth[cur.path] as int;
+
+        # Unrolled rather than looped over a list of filters: an edge filter is
+        # syntax, not a value, so there is nothing to iterate over.
+        dests: list[HwNode] = [];
+        kinds: list[str] = [];
+        for x in [cur ->:SuppliedBy:->] { dests.append(x as HwNode); kinds.append("supplied_by"); }
+        for x in [cur ->:ClockedBy:->]  { dests.append(x as HwNode); kinds.append("clocked_by"); }
+        for x in [cur ->:ResetBy:->]    { dests.append(x as HwNode); kinds.append("reset_by"); }
+        for x in [cur ->:ParentBus:->]  { dests.append(x as HwNode); kinds.append("parent_bus"); }
+
+        for (j, dst) in enumerate(dests) {
+            edges.append(GraphEdge(
+                src=cur.path,
+                dst=dst.path,
+                kind=kinds[j],
+                label=str(dst.label or dst.name)
+            ));
+            if dst.path not in seen {
+                seen[dst.path] = True;
+                depth[dst.path] = d + 1;
+                order.append(dst);
+            }
+        }
+    }
+
+    nodes: list[GraphNode] = [];
+    for n in order {
+        nodes.append(GraphNode(
+            path=n.path,
+            name=n.name,
+            kind=n.kind,
+            label=n.label,
+            state=n.state,
+            detail=n.detail,
+            healthy=n.healthy,
+            depth=depth[n.path] as int,
+            is_target=(n.path == start.path),
+            is_root_cause=(n.path == rc_path and rc_path != "")
+        ));
+    }
+
+    # Drop edges to nodes the limit cut off, so the renderer never has a line
+    # pointing at nothing.
+    kept: list[GraphEdge] = [];
+    for e in edges {
+        if e.dst in seen {
+            kept.append(e);
+        }
+    }
+    return {"nodes": nodes, "edges": kept};
+}
+
+
 """Turn a `Diagnose` fault dict into a wire `Hop`."""
 def _fault_hop(f: dict) -> Hop {
     return Hop(
@@ -125,15 +263,53 @@ def _fault_hop(f: dict) -> Hop {
 Idempotent by way of `BuildGraph`, which purges before rebuilding -- the graph
 persists in `.jac/data`, so without that a reload would stack a second tree on
 top of the first.
+
+That purge-and-reinsert is the expensive part: ~27 s from the CLI and ~75 s
+here, because every node and edge is a persisted write. So this walker refuses
+to redo it when the requested spec is already resident. `force` is the escape
+hatch for "I changed the snapshot on disk", and it is the only path that pays
+the full cost.
 """
 walker:pub LoadTree {
     has spec_path: str = "fixtures/perry-live.json",
+        force: bool = False,
         reports: list[StatusView] = [];
 
     can go with Root entry {
+        known = [here ->:MetaOf:->];
+        resident = len([here ->:Registry:->]);
+
+        if (not self.force) and resident > 0 and len(known) > 0 {
+            m = known[0] as GraphMeta;
+            if m.spec == self.spec_path {
+                report StatusView(
+                    device=m.device,
+                    nodes=resident,
+                    edges=m.edges,
+                    mode=os.environ.get("JACOS_MODE", "auto"),
+                    spec=m.spec,
+                    loaded=True
+                );
+                return;
+            }
+        }
+
         b = here spawn BuildGraph(spec_path=self.spec_path);
+        device = str(b.meta.get("device", "unknown"));
+
+        for old in known {
+            del [old];
+        }
+        fresh = GraphMeta(
+            device=device,
+            nodes=b.nodes_made,
+            edges=b.edges_made,
+            spec=self.spec_path
+        );
+        here +>: MetaOf :+> fresh;
+
         report StatusView(
-            device=str(b.meta.get("device", "unknown")),
+            device=device,
             nodes=b.nodes_made,
             edges=b.edges_made,
             mode=os.environ.get("JACOS_MODE", "auto"),
@@ -143,19 +319,43 @@ walker:pub LoadTree {
     }
 }
 
-"""Report the current graph without touching it."""
+"""Report the current graph without touching it.
+
+This is what the console asks on mount. It must stay cheap -- the edge count
+comes off the `GraphMeta` record rather than a traversal, so the answer costs
+one hop no matter how large the tree is.
+"""
 walker:pub Status {
     has reports: list[StatusView] = [];
 
     can go with Root entry {
-        nodes = [here ->:Registry:->];
+        resident = len([here ->:Registry:->]);
+        known = [here ->:MetaOf:->];
+
+        if resident > 0 and len(known) > 0 {
+            m = known[0] as GraphMeta;
+            report StatusView(
+                device=m.device,
+                nodes=resident,
+                edges=m.edges,
+                mode=os.environ.get("JACOS_MODE", "auto"),
+                spec=m.spec,
+                loaded=True
+            );
+            return;
+        }
+
+        # No meta record: the graph was imported by something that predates it
+        # (the CLI's `BuildGraph`, or a build from before this walker existed).
+        # Counting the edges here would mean ~2300 traversals and about a
+        # minute, so report "unknown" rather than a confident zero.
         report StatusView(
             device="motorola-perry",
-            nodes=len(nodes),
-            edges=0,
+            nodes=resident,
+            edges=-1,
             mode=os.environ.get("JACOS_MODE", "auto"),
             spec="",
-            loaded=len(nodes) > 0
+            loaded=resident > 0
         );
     }
 }
@@ -210,6 +410,7 @@ exactly as the CLI does.
 """
 walker:pub DiagnoseNode {
     has query: str = "",
+        max_nodes: int = 60,
         reports: list[DiagnosisView] = [];
 
     can go with Root entry {
@@ -244,15 +445,24 @@ walker:pub DiagnoseNode {
         }
 
         rc = d.root_cause();
+        rc_path = str(rc.get("path", ""));
+
+        # Drawn from the graph rather than from the trail: the trail is a list,
+        # and a list cannot show that the rail and the bus are two different
+        # kinds of dependency hanging off the same device.
+        sub = _subgraph(target, rc_path, self.max_nodes);
+
         report DiagnosisView(
             symptom=self.query,
             target=target.path,
             walked=len(d.trail),
             trail=trail,
             faults=faults,
-            root_cause_path=str(rc.get("path", "")),
+            root_cause_path=rc_path,
             root_cause_detail=str(rc.get("detail", "")),
-            found=True
+            found=True,
+            nodes=sub["nodes"] as list,
+            edges=sub["edges"] as list
         );
     }
 }

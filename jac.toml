@@ -31,3 +31,8 @@ watchdog = ">=3.0.0"
 base_route_app = "app"
 
 [plugins.client]
+# Turn this on when a client build fails: it appends a "Raw Error" block with
+# the actual Vite/Rollup message, which is how the missing-stylesheet
+# resolution error was finally read. Off by default -- it prints a warning
+# banner at startup that is noise during a demo.
+debug = false

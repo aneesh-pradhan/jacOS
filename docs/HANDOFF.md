@@ -286,8 +286,9 @@ sysfs and overrides the snapshot. That is why minute 4 is a laptop step.
 
 **NOT done — this is where to resume:**
 
-1. **Fix the web console's client render crash.** Fully characterised in §7;
-   it is the one thing between the console and working. Start here.
+1. ~~Fix the web console's client render crash.~~ **Done — see §9.** The
+   console loads in under a second, renders styled, and draws the dependency
+   subgraph. Four separate bugs, none of them the one §7 suspected.
 2. **Run the timed 4-minute rehearsal.** Everything the *terminal* demo needs
    is verified and committed; what has never been measured is whether it fits
    in 4 minutes.
@@ -386,6 +387,10 @@ Dev mode (`--dev`) splits ports: client on `--port`, API on `port+1`. Without
 whose 19-hop trail is **identical to the CLI's**. The typed `obj`s cross the
 wire hydrated. This is the load-bearing claim and it holds.
 
+**Client half: FIXED in §9 — read that instead of the paragraph below.** The
+account here of *what* breaks is accurate; the three suspects it nominates are
+all wrong, and the real causes are in §9.
+
 **Client half: renders, then crashes.** The page serves 200, React mounts, and
 the man page draws correctly in its loading state — header, NAME, SYNOPSIS,
 DEVICE TREE, SEE ALSO, footer all present and styled. Then `LoadTree` and
@@ -478,3 +483,316 @@ Then pull the snapshot back for the replay fallback:
 scp perry:~/jacos/fixtures/perry-live.json fixtures/perry-live.json
 scp perry:/tmp/jacos-snapshot.tar.gz fixtures/perry-snapshot.tar.gz   # gitignored, but minute 4 needs it
 ```
+
+---
+
+## 8. Web console, fourth session — the "frontend is broken" triage
+
+Written 2026-07-26, interrupted by a planned reboot. **Superseded by §9 —
+all of it is fixed now.** Kept because the reasoning is still the fastest way
+to understand the shape of the problem: §7's suspect list is wrong, and the
+"inaccessible" symptom is a separate bug from the crash. §8's central
+insight — that the error everyone was chasing is the ErrorBoundary's own
+secondary crash and not the real error — was correct and is what made §9
+possible. Its *diagnosis* of Failure A as a deadlock was wrong; see §9.
+
+### There are two independent failures, not one
+
+§7 describes one bug (a client render crash). There are actually two, and the
+second one masks the first, which is why this looked so confusing.
+
+**Failure A — the dev server deadlocks, and that is what "localhost:8100 is
+completely inaccessible" means.** Verified on the live process:
+
+```
+netstat: 0.0.0.0:8100 LISTENING  +  five sockets stuck in CLOSE_WAIT
+Get-Process: Threads = 1, CPU consumed over a 5 s window = 0.00 s
+```
+
+One thread, zero CPU, sockets the server accepted and never closed. It is
+blocked, not spinning — so it is a deadlock or an unbounded blocking wait inside
+request handling, *not* an infinite loop and *not* slow graph import. Once the
+accept backlog fills with those CLOSE_WAIT sockets, Windows starts **actively
+refusing** new connections, so the port goes from "hangs" to "connection
+refused" and the server looks dead while the process is still alive. Both
+symptoms are the same bug at different backlog depths.
+
+Consequence worth internalising: **`jac start` printing "Server ready" tells you
+nothing.** It printed that every single time while serving nothing.
+
+**Failure B — the render crash from §7, which is still real and still
+unexplained**, but see below: the error message everyone has been chasing is not
+the error.
+
+### `Cannot read properties of undefined (reading 'message')` is a red herring
+
+Resolved the minified frame `Nx` in `.jac/client/dist/client.*.js`. It is **not
+JacOS code** — it is jac-client's own ErrorBoundary fallback component:
+
+```js
+function Nx(e){const{error:t,resetErrorBoundary:i}=e; ... [t.message] ... }
+```
+
+mounted at the bundle root as
+`createElement(ErrorBoundary,{FallbackComponent:Nx,onError:Fx}, <App/>)`.
+
+So the sequence is: the real error throws → the boundary catches it → the
+boundary renders `Nx` → **`Nx` crashes on `error.message` because `error` is
+undefined** → that secondary crash is what reaches `window.onerror` and what
+lands in `.jac/jacos-web.stderr.log`. The original error is swallowed and never
+logged anywhere.
+
+**Everything in §7's "prime suspects, in the order worth checking" list was
+guesswork against this phantom.** All three suspects have since been patched
+(uncommitted, see below) and the crash is unchanged — confirmed by timestamps:
+`ManPage.cl.jac` edited 15:50, bundle rebuilt 15:58, identical crash logged
+16:02. Do not spend more time on that list.
+
+**The next move on Failure B is to make the real error visible, not to guess
+again.** Options, best first: render the page and read the browser console
+directly (React logs the original error via `console.error` *before* the
+boundary re-renders, so it is visible in devtools even though it never reaches
+`window.onerror`); or flip `[plugins.client] debug` in `jac.toml` (currently
+`false`, added uncommitted this session) and rebuild; or temporarily wrap
+`<ManPage/>` so the boundary is bypassed.
+
+### One genuine compiler bug, found by reading the emitted JS
+
+Independent of both failures above, and it will bite during the demo the moment
+anyone clicks a device-tree row. In `ManPage.cl.jac` the row handler is
+
+```jac
+onClick={lambda e: MouseEvent { diagnosePath(n.path); }}
+```
+
+`.jac/client/compiled/components/ManPage.js` emits it as:
+
+```js
+"onClick": e => { __jac_view_kids_2.push(diagnosePath(n.path)); }
+```
+
+The lambda body sits inside a JSX children slot, so the compiler treated the
+lambda's own braces as a *view slot body* and rewrote a plain call into a push
+onto the enclosing children accumulator. Clicking a row therefore pushes a
+pending Promise into the children array of an already-rendered element instead
+of running the walker. The identical lambda on the SYNOPSIS `run` button
+compiles correctly (`e => { diagnosePath(query); }`) because it is not nested in
+a `for` slot.
+
+Workaround to try: hoist the body out of the lambda — give `ManPage` a named
+`def onRowClick(p: str)` and pass a reference, rather than an inline lambda
+inside a slot. Same shape as `onClick={boot}`, which compiles clean.
+
+### Uncommitted working-tree state as of the reboot
+
+`git status` is dirty and **none of it is committed**. Do not assume `master`
+reflects any of this:
+
+- `src/components/ManPage.cl.jac` / `.impl.jac` — renamed the state field
+  `filter` → `query` (it shadowed nothing provable; unverified as a fix),
+  guarded `n.kind[0:3]` and `n.rails`, dropped the inline `style={{...}}` dict.
+  These are §7's three suspects. **They do not fix the crash.**
+- `jac.toml` — added `debug = false` under `[plugins.client]`.
+- `src/hw.py` — new `_clk_summary_map()`, implementing the `clk_summary`
+  parsing listed as open item 4 in §5. Clocks now assess by `enable_count`
+  instead of always reporting "present". **Untested against the phone**, and it
+  changes health output, so re-run the §5 end-to-end numbers before trusting the
+  demo: it can move the "16 findings" count.
+- `pi_capture.py` — untracked, new, unrelated to the console: paramiko driver
+  that waits for `raspberrypi.local`, pushes `10-capture-topology.sh`, and pulls
+  a tarball to `fixtures/pizero-snapshot.tar.gz`. Note it has a **hardcoded
+  default password in cleartext** (`pi`/`raspberry`) and the repo is public —
+  do not commit it in that form.
+
+### Restart procedure after the reboot
+
+The reboot clears Failure A's wedged process and the CLOSE_WAIT backlog for
+free, which is the one good thing about it. Before assuming a fresh `jac start`
+works, know that **stale servers squat the port**: this session found *two*
+complete `jac start ... --port 8100` process trees alive simultaneously (six
+processes, from 15:56 and 16:13). Only the older tree actually held the
+listening socket; the newer one still printed the full "Server ready" banner, so
+there was no way to tell from its output that it owned nothing. Always check
+first:
+
+```powershell
+Get-CimInstance Win32_Process -Filter "Name='python.exe' OR Name='jac.exe'" | Select-Object ProcessId,Name,CommandLine | Format-List
+```
+
+Kill every `jac start` tree you find, confirm the port is free, then start one:
+
+```powershell
+Get-NetTCPConnection -State Listen -LocalPort 8100 -ErrorAction SilentlyContinue
+```
+
+Verify it is actually serving before opening a browser — "Server ready" is not
+evidence. A raw socket probe is the honest test, because `Invoke-WebRequest`
+reports a saturated backlog as "Unable to connect", which reads like "nothing is
+listening" and sends you down the wrong path:
+
+```powershell
+$c = New-Object System.Net.Sockets.TcpClient; $c.Connect('127.0.0.1',8100)
+```
+
+Then clear the client build cache before rebuilding — §7 already records that a
+stale Vite failure survives the fix that should have cleared it:
+
+```bash
+rm -rf .jac/client/compiled .jac/client/dist
+```
+
+### Priority call for the time that is left
+
+Failure A blocks everything, including the ability to observe Failure B, so it
+goes first. But be honest about the clock: the web console is a Use-of-Jac
+booster on a submission whose **terminal demo is already verified end to end on
+real hardware**, and §5 items 2 and 3 — the never-measured 4-minute rehearsal
+and the **demo video that does not exist** — are on the critical path to
+submitting at all. If the console is not serving within a short, fixed timebox,
+cut it and ship the terminal demo. The 46.8%-Jac source ratio from §7 is already
+banked in the tree either way.
+
+---
+
+## 9. Web console, fifth session — working, styled, and drawing the graph
+
+Written 2026-07-26. **The console works end to end.** Both failures in §8 are
+fixed, and there were two more nobody had found. Every claim below was checked
+in a browser against the running server, not inferred.
+
+### Failure A was never a deadlock — the import is just slow
+
+`LoadTree` takes **~40–75 s**, because `BuildGraph` purges and reinserts 465
+nodes and 732 edges and every one of those is a persisted write. The CLI pays
+27 s for the same work, so this is inherent to the store, not a server bug.
+
+The dev server handles **one request at a time**. `boot()` called `LoadTree`
+unconditionally on mount, so for over a minute every other fetch sat in the
+accept backlog — which is what produced §8's five `CLOSE_WAIT` sockets, and
+then outright connection refusals once the backlog filled. "One thread, 0.00 s
+CPU over a 5 s window" was not a lock; it was a process blocked on disk.
+
+Fix: **ask before importing.** `boot()` spawns `Status` first and only builds
+when the graph is empty. A `GraphMeta` node (in `webapi.sv.jac`, hung off root
+by a `MetaOf` edge so `BuildGraph`'s registry purge walks past it) records
+device/nodes/edges/spec, so `Status` answers in ~90 ms. `LoadTree` also
+declines to rebuild a spec that is already resident unless passed
+`force=True`, which is what the SYNOPSIS `build` button sends.
+
+Page load is now **under a second**.
+
+### `node` is a reserved word, and misusing it silently empties every `impl`
+
+`def:pub TreeRow(node: NodeView, ...)` in a `.cl.jac` produces
+`error[E0013]: 'node' is a keyword and cannot be used as a parameter name`.
+The build does **not** fail. What happens instead is that the compiler emits
+the component markup correctly and drops every `impl` body on the floor:
+
+```js
+async function boot() {}          // ManPage.impl.jac, silently discarded
+async function diagnosePath(p) {}
+```
+
+So the page renders its loading state forever and never issues a single
+walker call. Rename the parameter (`row`, `blk`) or escape it as `` `node ``.
+
+**`jac check` catches this and the client build does not.** Run
+`jac check src/components/*.cl.jac` after touching a component; hard errors
+there are real even though §7 is right that `jac check` also flags harmless
+things in `src/jacos.jac`.
+
+### The render crash: `", ".join(...)` does not survive client lowering
+
+This is the bug that outlived four sessions. In `.cl.jac`,
+`", ".join(row.rails)` lowers to `_jac.poly.call(", ", "join", row.rails)` —
+a method dispatch on a **string primitive** — and it throws a non-`Error`
+value. That is precisely why §8 found `error` to be `undefined` inside the
+ErrorBoundary fallback: there was no error object to read `.message` from.
+
+It only executes on a row that actually *has* rails, which is why the page
+looked fine while loading and blanked the instant real data arrived, and why
+§7's "guard `n.rails`" patch changed nothing — `rails` was never undefined.
+
+Build the string with a loop instead (see `TreeRow`). Treat client-side
+`str.join`, and Python string methods generally, as suspect in `.cl.jac`.
+
+### The stylesheet had never once loaded — in any session
+
+§7 records that the man page "draws correctly ... header, NAME, SYNOPSIS ...
+all present and styled". The structure was there; **the styling never was.**
+The archived bundle from that session contains zero CSS text. The page had
+been rendering as unstyled black-on-white Times New Roman the whole time.
+
+The annex mechanism works like this, and it is easy to invert:
+
+- The **source** must be `ManPage.style.css`. The compiler pairs it by base
+  name and injects `import "./ManPage.css";` — that emitted name is its
+  *output*, not the name you give the file.
+- §7 read the emitted import as the required source name and renamed the file
+  to `ManPage.css`. That stops the pairing dead: no import is emitted, no CSS
+  enters the bundle, and the build goes green. A silent unstyled page is the
+  failure mode, which is why it survived so long.
+- But `.style.css` does not work here either: the compiler emits the import
+  and then **never copies the annex** into `.jac/client/compiled/components/`,
+  so Rollup dies on `Could not resolve "./ManPage.css"`.
+
+**The route that works** — and is the guide's documented one for app-wide CSS
+— is an explicit import of a file under `assets/`:
+
+```jac
+cl {
+    import "@jac-client/assets/console.css";
+    ...
+}
+```
+
+`assets/console.css` is copied to `compiled/assets/`, `@jac-client/assets` is
+already aliased there in the generated Vite config, Vite emits `dist/styles.css`
+and the server links it as `/static/styles.css` on its own. Verified in the
+browser: `document.styleSheets` is non-empty and `.man` computes to the
+phosphor palette.
+
+### DEPENDENCY GRAPH — the console now draws the graph as a graph
+
+New section between DEVICE TREE and DIAGNOSTICS. `DiagnoseNode` additionally
+reports `nodes: list[GraphNode]` and `edges: list[GraphEdge]`, projected by
+`_subgraph()` in `webapi.sv.jac`, which follows exactly the four edge types
+`Diagnose.descend` follows so the drawing and the walk cannot disagree. It is
+projection only — it reads the assessment `Diagnose` already wrote and decides
+nothing about health.
+
+Layout is client-side (position is a property of the picture, not of the
+hardware): column by hop distance from the symptom, row by arrival order,
+deterministic so the drawing is identical every time it is shown. Edge colour
+is edge archetype — amber `supplied_by`, cyan `clocked_by`, violet `reset_by`,
+dashed grey `parent_bus` — with a legend, because "these are different kinds of
+relationship" is the entire claim. Clicking any block re-runs the walk from it.
+
+Verified for touchscreen: 19 boxes, 32 edges, six depth columns, contained in
+its own horizontal scroller so the page never scrolls sideways. Verified for a
+fault (`regulator-cam-vana`): red-stroked root-cause box with a pulsing marker
+and the red ROOT CAUSE panel below.
+
+### Two things to know before demoing it
+
+- **`health` reports 18 findings here, not the 16 in §5** — and *which number
+  you get depends on the machine*, which is the part that matters. The
+  `_clk_summary_map()` added to `src/hw.py` reads clock state from
+  `fixtures/clk_summary.txt` or from `fixtures/perry-snapshot.tar.gz`. **That
+  tarball is gitignored** (`fixtures/*.tar.gz`) and happens to be present in
+  this working copy, so clocks assess by `enable_count` here and report 18. On
+  a fresh clone the file is absent, `_clk_summary_map()` returns empty, clocks
+  fall back to "present", and health reports 16. Decide which number the demo
+  script claims, and if it is 18, make sure the machine you present from
+  actually has the tarball — `scp perry:/tmp/jacos-snapshot.tar.gz
+  fixtures/perry-snapshot.tar.gz`.
+- **The `build` button really does cost ~40 s** and blocks the whole server
+  while it runs. It is labelled with that in the UI. Do not press it on stage;
+  the graph is already resident and `Status` proves it in milliseconds.
+
+### Stale second build tree
+
+`src/.jac/` exists alongside the real `.jac/` — an older tree from when the
+entry resolved differently. It holds a 2:59 PM `compiled/components/ManPage.css`
+and its own `data/main.db`. Nothing reads it now. It is worth deleting once
+someone confirms the DB in it is not the one being demoed.
