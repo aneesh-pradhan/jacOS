@@ -48,6 +48,52 @@ def _sysfs_name(dt_path: str) -> str:
 
 
 _OF_MAP: dict[str, str] | None = None
+_CLK_SUMMARY_MAP: dict[str, dict] | None = None
+
+
+def _clk_summary_map() -> dict[str, dict]:
+    global _CLK_SUMMARY_MAP
+    if _CLK_SUMMARY_MAP is not None:
+        return _CLK_SUMMARY_MAP
+    
+    out: dict[str, dict] = {}
+    raw = ""
+    if LIVE:
+        raw = _read("/sys/kernel/debug/clk/clk_summary")
+    else:
+        snap = os.environ.get("JACOS_SNAPSHOT_CLK", "")
+        if snap:
+            raw = _read(snap)
+        elif os.path.exists("fixtures/clk_summary.txt"):
+            raw = _read("fixtures/clk_summary.txt")
+        elif os.path.exists("fixtures/perry-snapshot.tar.gz"):
+            try:
+                import tarfile
+                with tarfile.open("fixtures/perry-snapshot.tar.gz", "r:gz") as tar:
+                    member = tar.extractfile("jacos-snapshot/clk_summary.txt")
+                    if member:
+                        raw = member.read().decode("utf-8", errors="replace")
+            except Exception:
+                pass
+                
+    if not raw:
+        _CLK_SUMMARY_MAP = out
+        return out
+        
+    for line in raw.splitlines()[3:]:
+        if not line.strip():
+            continue
+        parts = line.split()
+        if len(parts) >= 2:
+            name = parts[0]
+            try:
+                en = int(parts[1])
+            except ValueError:
+                en = 0
+            out[name] = {"enable_count": en, "rate": parts[4] if len(parts) > 4 else "0"}
+            
+    _CLK_SUMMARY_MAP = out
+    return out
 
 
 def _of_node_map() -> dict[str, str]:
@@ -204,8 +250,26 @@ def probe_health(path: str, kind: str, label: str = "",
         return {"healthy": healthy, "state": "bound" if healthy else "unbound",
                 "detail": detail}
 
-    # Clock and interrupt controllers: presence in the tree with status okay is
-    # the best cheap signal. clk_summary parsing is a stretch goal.
+    if kind == "clock":
+        cm = _clk_summary_map()
+        clk_name = label or path.split("/")[-1]
+        clk_name = clk_name.split("@")[0]
+        if not cm:
+            return {"healthy": True, "state": "present", "detail": f"{kind} present"}
+        if clk_name in cm:
+            info = cm[clk_name]
+            en = info["enable_count"]
+            rate = info["rate"]
+            # A clock is healthy if it is enabled (has users) or if its rate is set,
+            # but for simple fault-finding, `enable_count > 0` is the strongest signal.
+            healthy = en > 0
+            state = "enabled" if healthy else "disabled"
+            detail = f"clock {clk_name} is {state} (rate: {rate})"
+            return {"healthy": healthy, "state": state, "detail": detail}
+        else:
+            return {"healthy": True, "state": "unknown", "detail": f"clock {clk_name} not found in summary"}
+
+    # Interrupt controllers
     return {"healthy": True, "state": "present", "detail": f"{kind} present"}
 
 
