@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  offline:
+    name: hardware-free checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install jaclang 0.16.7
+        run: python -m pip install "jaclang==0.16.7"
+
+      - name: Lint and replay fixtures
+        run: sh scripts/check-offline.sh
